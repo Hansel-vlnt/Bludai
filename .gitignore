@@ -1,0 +1,24 @@
+# Ignore reference clone directories
+hermes-agent/
+9router/
+openclaw/
+
+# Python ignores
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+env.bak/
+venv.bak/
+
+# Environment files
+.env
+.env.local
+
+# IDEs
+.vscode/
+.idea/
