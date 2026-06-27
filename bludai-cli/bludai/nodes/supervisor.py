@@ -17,8 +17,8 @@ class SupervisorResponse(BaseModel):
 
 def supervisor_node(state: AgentState) -> dict:
     """Orchestrator node that checks progress against the checklist and routes to workers."""
-    # Get 9Router client
-    llm = get_llm_client()
+    # Get 9Router client for this specific role
+    llm = get_llm_client(role="Supervisor")
     
     # Inject loaded skills playbooks if any
     skills_prompt = skills_manager.get_skill_system_prompt_addition()

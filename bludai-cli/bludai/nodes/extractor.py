@@ -11,7 +11,7 @@ def extract_and_save_skill(skill_name: str, state_ctx) -> tuple[bool, str]:
     if not state_ctx.messages:
         return False, "No conversation history found to extract a skill from."
 
-    llm = get_llm_client()
+    llm = get_llm_client(role="Extractor")
     
     # Format messages for the extractor LLM
     history_str = ""

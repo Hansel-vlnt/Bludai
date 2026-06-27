@@ -7,7 +7,8 @@ from rich.console import Console
 console = Console()
 
 DEFAULT_9ROUTER_URL = "http://localhost:20128/v1"
-DEFAULT_MODEL = "google/gemini-2.5-flash"  # 9Router will map this appropriately or use default
+# Anda bisa mengganti "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free" dengan model OpenRouter lainnya
+DEFAULT_MODEL = os.environ.get("BLUDAI_MODEL", "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free")
 
 def check_9router_status(url=DEFAULT_9ROUTER_URL) -> bool:
     """Checks if the 9Router proxy is up and responding."""
@@ -23,11 +24,19 @@ def check_9router_status(url=DEFAULT_9ROUTER_URL) -> bool:
         pass
     return False
 
-def get_llm_client(model_name=DEFAULT_MODEL, temperature=0.0):
+from bludai.core.models_manager import models_manager
+
+def get_llm_client(role: str = None, temperature: float = 0.0):
     """
     Returns a ChatOpenAI instance configured to communicate with the local 9Router proxy.
-    Using OpenAI-compatible client allows standard LangGraph execution.
+    If a role is provided (e.g. 'Supervisor'), it fetches the assigned model.
     """
+    model_name = DEFAULT_MODEL
+    if role:
+        assigned_model = models_manager.get_model_for_role(role)
+        if assigned_model:
+            model_name = assigned_model
+
     # 9Router uses standard api keys, or mock key if require_api_key is false
     api_key = os.environ.get("NINE_ROUTER_API_KEY") or os.environ.get("OPENAI_API_KEY") or "dummy-9router-token"
     
