@@ -195,3 +195,44 @@
           * Developer/Tester agent writes `test_main.py`.
           * Executor agent runs `pytest` or `python test_main.py`.
           * Manager inspects and confirms success.
+
+---
+
+## 🛑 Audit & Architectural Revisions (Phase 1)
+
+Based on our recent implementation progress and a deep-dive review against our reference research, we have successfully implemented the core structure. However, there are critical gaps that we must address to ensure enterprise-grade reliability and security.
+
+### Audit Findings:
+- **✅ Codebase Completeness Check:** The foundational CLI structure (`cli.py`), core loop (`graph.py`), and nodes (`supervisor.py`, `developer.py`, `executor.py`) have been correctly implemented.
+- **❌ Security Gap (Trust-Vulnerability Paradox):** Our initial plan omitted a critical security vulnerability detailed in the research: the **Trust-Vulnerability Paradox (TVP)**. As agents delegate tasks, they blindly trust each other.
+- **❌ Observability Gap:** The plan currently relies entirely on `cli.py` prints. We need step-level state logs for debugging failure attributions.
+
+### Proposed Revisions
+#### 1. [NEW] Guardian-Agent / MNI-Gate (`core/guardian.py`)
+- **Role:** A security middleware node acting as the Minimum Necessary Information (MNI) Gate. 
+#### 2. [NEW] Step-level Traceability Logger (`core/logger.py`)
+- **Role:** An independent JSONL logging system that writes every `AgentState` transition to disk.
+
+---
+
+## 🎯 Phase 2: Multi-Model Role Assignment
+
+Based on user feedback, relying on a single `DEFAULT_MODEL` for all agents is inefficient. Complex tasks (Supervisor) need highly capable models, while repetitive or specific tasks (Developer/Executor) can use specialized or faster models.
+
+### The Feature Plan:
+We will build a dynamic **Role Assignment System** inside the CLI that lets the user assign models to specific agents.
+
+#### 1. [NEW] Models Manager (`core/models_manager.py`)
+- A new module that reads from a persistent `roles.json` file.
+- **Roles:** `Supervisor`, `Developer`, `Executor`, `Extractor`.
+
+#### 2. [MODIFY] LLM Client Initialization (`core/llm_client.py`)
+- Update `get_llm_client(role="default")` to accept a role parameter.
+- It will query `models_manager.py` to see if a custom model is assigned to that role. If not, it falls back to the default model.
+
+#### 3. [MODIFY] LangGraph Nodes
+- Update `supervisor_node`, `developer_node`, and `executor_node` to pass their respective roles when calling `get_llm_client()`.
+
+#### 4. [NEW] `/models` Slash Command (`commands.py`)
+- **`/models`**: Lists all connected models from 9Router and displays the current role assignments.
+- **`/models set <Role> <ModelName>`**: Allows the user to assign a specific model to a role directly from the CLI.
