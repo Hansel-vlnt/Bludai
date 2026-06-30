@@ -15,6 +15,8 @@ class SupervisorResponse(BaseModel):
         description="Detailed instruction for the selected worker node. If next_node is 'FINISH', write the final output response for the user here."
     )
 
+from bludai.core.memory import get_store
+
 def supervisor_node(state: AgentState) -> dict:
     """Orchestrator node that checks progress against the checklist and routes to workers."""
     # Get 9Router client for this specific role
@@ -23,6 +25,14 @@ def supervisor_node(state: AgentState) -> dict:
     # Inject loaded skills playbooks if any
     skills_prompt = skills_manager.get_skill_system_prompt_addition()
     
+    # Query Long-Term Memory (BaseStore)
+    store = get_store()
+    facts = "None"
+    if store:
+        results = store.search(("facts", "user"))
+        if results:
+            facts = "\n- ".join([item.value.get("fact", str(item.value)) for item in results])
+            
     system_prompt = f"""You are the Supervisor (Orchestrator) for the BLUDAI Multi-Agent System.
 Your job is to coordinate a Developer node (creates/modifies files) and an Executor node (runs terminal commands) to solve the user's request.
 
@@ -34,6 +44,9 @@ Operational Guidelines:
    - 'Executor': for terminal command executions (compiling, testing, git commands, installing dependencies).
    - 'FINISH': when all tasks on the checklist are complete or when you can answer the user directly.
 4. Delegate instructions clearly to the worker. Do not try to write code yourself—instruct Developer to do it. Do not execute command strings yourself—instruct Executor to do it.
+
+[LONG-TERM MEMORY (Facts about User/Project)]:
+- {facts}
 
 {skills_prompt}
 """

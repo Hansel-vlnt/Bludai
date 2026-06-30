@@ -26,16 +26,17 @@ prompt_style = Style.from_dict({
     'arrow': 'bold #00E5FF',
 })
 
+import uuid
+
 class CLIStateContext:
     """Holds the active session state during CLI lifetime."""
     def __init__(self):
-        self.messages = []
+        self.thread_id = uuid.uuid4().hex
         self.checklist = ""
-        self.current_model = "google/gemini-2.5-flash"
         self.skills = {}
         
     def clear(self):
-        self.messages = []
+        self.thread_id = uuid.uuid4().hex
         self.checklist = ""
 
 def print_banner(is_connected: bool, skills_count: int):
@@ -115,30 +116,29 @@ def run_cli():
             # Run query
             console.print("[bold cyan]Supervisor node routing task...[/]")
             
-            # Add user message to history
+            # Run graph with only the new message
             from langchain_core.messages import HumanMessage
-            state_ctx.messages.append(HumanMessage(content=text))
             
-            # Run graph
             inputs = {
-                "messages": state_ctx.messages,
+                "messages": [HumanMessage(content=text)],
                 "checklist": state_ctx.checklist,
                 "next": "Supervisor"
             }
             
             try:
-                # Run the state graph synchronously
-                # We can stream the output of each node to display progress to the user
-                result = app.invoke(inputs)
+                # Run the state graph synchronously with thread_id config
+                config = {"configurable": {"thread_id": state_ctx.thread_id}}
+                result = app.invoke(inputs, config=config)
                 
                 # Update our context from the graph run result
-                state_ctx.messages = result["messages"]
                 state_ctx.checklist = result.get("checklist", "")
                 
+                # Fetch final state to get messages for UI
+                final_messages = result.get("messages", [])
+                
                 # Show the final assistant response
-                # The last message should be the assistant's final response
-                if state_ctx.messages:
-                    last_msg = state_ctx.messages[-1]
+                if final_messages:
+                    last_msg = final_messages[-1]
                     if last_msg.type == "ai":
                         console.print("\n[bold green]Bludai Assistant:[/]")
                         console.print(Markdown(last_msg.content))

@@ -30,5 +30,10 @@ workflow.add_edge("Executor", "Supervisor")
 # Set entry point
 workflow.set_entry_point("Supervisor")
 
-# Compile graph
-app = workflow.compile()
+from bludai.core.memory import get_checkpointer, get_store
+
+# Compile graph with memory components
+app = workflow.compile(
+    checkpointer=get_checkpointer(),
+    store=get_store()
+)
