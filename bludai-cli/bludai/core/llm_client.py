@@ -26,13 +26,16 @@ def check_9router_status(url=DEFAULT_9ROUTER_URL) -> bool:
 
 from bludai.core.models_manager import models_manager
 
-def get_llm_client(role: str = None, temperature: float = 0.0):
+def get_llm_client(role: str = None, model_id: str = None, temperature: float = 0.0):
     """
     Returns a ChatOpenAI instance configured to communicate with the local 9Router proxy.
-    If a role is provided (e.g. 'Supervisor'), it fetches the assigned model.
+    If model_id is provided, it uses that exact model.
+    Else if a role is provided (e.g. 'Supervisor'), it fetches the assigned model.
     """
     model_name = DEFAULT_MODEL
-    if role:
+    if model_id:
+        model_name = model_id
+    elif role:
         assigned_model = models_manager.get_model_for_role(role)
         if assigned_model:
             model_name = assigned_model

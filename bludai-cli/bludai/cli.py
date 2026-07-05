@@ -34,10 +34,14 @@ class CLIStateContext:
         self.thread_id = uuid.uuid4().hex
         self.checklist = ""
         self.skills = {}
+        self.mode = "role"
+        self.basic_model = "meta-llama/llama-3-8b-instruct:free"
+        self.basic_messages = []
         
     def clear(self):
         self.thread_id = uuid.uuid4().hex
         self.checklist = ""
+        self.basic_messages = []
 
 def print_banner(is_connected: bool, skills_count: int):
     console.print(BLUDAI_LOGO)
@@ -78,14 +82,23 @@ def run_cli():
     
     while True:
         try:
-            # Prompt user
+            # Prompt user based on mode
+            prompt_text = f"bludai ({state_ctx.mode})"
             text = session.prompt(
-                [('class:prompt', 'bludai'), ('class:arrow', ' ❯ ')],
+                [('class:prompt', prompt_text), ('class:arrow', ' ❯ ')],
                 style=prompt_style
             )
             text = text.strip()
             if not text:
                 continue
+                
+            from bludai.core.session_manager import session_manager
+            existing = session_manager.get_session(state_ctx.thread_id)
+            if not existing:
+                title = text[:30] + ("..." if len(text) > 30 else "")
+                session_manager.create_or_update_session(state_ctx.thread_id, title, state_ctx.mode)
+            else:
+                session_manager.update_timestamp(state_ctx.thread_id)
                 
             # Check for slash commands
             if text.startswith("/"):
@@ -103,6 +116,33 @@ def run_cli():
                     console.print("[bold red]Error:[/] 9Router is offline. Run '9router start' to enable queries.")
                     continue
             
+            # Handle Basic Mode
+            if state_ctx.mode == "basic":
+                from langchain_core.messages import HumanMessage
+                from bludai.core.graph_basic import basic_app
+                
+                console.print(f"[dim]Calling {state_ctx.basic_model}...[/]")
+                
+                inputs = {
+                    "messages": [HumanMessage(content=text)],
+                    "basic_model": state_ctx.basic_model
+                }
+                config = {"configurable": {"thread_id": state_ctx.thread_id}}
+                
+                try:
+                    result = basic_app.invoke(inputs, config=config)
+                    final_messages = result.get("messages", [])
+                    
+                    if final_messages:
+                        last_msg = final_messages[-1]
+                        if last_msg.type == "ai":
+                            console.print(f"\n[bold green][{state_ctx.basic_model}]:[/]")
+                            console.print(Markdown(last_msg.content))
+                            console.print()
+                except Exception as e:
+                    console.print(f"[bold red]Error in Basic Chat:[/] {e}")
+                continue
+                
             # Lazy load graph to keep startup instant
             if app is None:
                 console.print("[dim]Initializing LangGraph Orchestrator...[/]")

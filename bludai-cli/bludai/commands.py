@@ -147,3 +147,62 @@ def cmd_ask(args, state_ctx):
         console.print(f"[bold red]Error communicating with {role}:[/] {e}")
         
     return True
+
+@registry.register("mode", "Switch between 'role' (Agent) and 'basic <ModelName>' (Direct Chat) modes.")
+def cmd_mode(args, state_ctx):
+    parts = args.strip().split()
+    if not parts:
+        console.print(f"[bold cyan]Current Mode:[/] {getattr(state_ctx, 'mode', 'role')}")
+        if getattr(state_ctx, 'mode', 'role') == "basic":
+            console.print(f"[bold cyan]Basic Model:[/] {getattr(state_ctx, 'basic_model', 'None')}")
+        return True
+        
+    requested_mode = parts[0].lower()
+    
+    if requested_mode == "role":
+        state_ctx.mode = "role"
+        console.print("[bold green]Success:[/] Switched to Multi-Agent Role Mode.")
+    elif requested_mode == "basic":
+        if len(parts) < 2:
+            console.print("[bold red]Usage:[/] /mode basic <ModelName>")
+            return True
+        state_ctx.mode = "basic"
+        state_ctx.basic_model = parts[1]
+        console.print(f"[bold green]Success:[/] Switched to Basic Mode with model '{state_ctx.basic_model}'.")
+    else:
+        console.print("[bold red]Error:[/] Mode must be 'role' or 'basic'.")
+        
+    return True
+
+@registry.register("history", "View and switch between past chat sessions.")
+def cmd_history(args, state_ctx):
+    from bludai.core.session_manager import session_manager
+    sessions = session_manager.get_sessions(limit=15)
+    
+    if not sessions:
+        console.print("[yellow]No chat history found.[/]")
+        return True
+        
+    from prompt_toolkit.shortcuts import radiolist_dialog
+    
+    choices = []
+    for s in sessions:
+        time_str = s['updated_at'][:16].replace("T", " ")
+        label = f"[{time_str}] {s['title']} ({s['mode']})"
+        choices.append((s['thread_id'], label))
+        
+    result = radiolist_dialog(
+        title="Chat History",
+        text="Select a past session to resume (Up/Down arrows, Enter to select):",
+        values=choices
+    ).run()
+    
+    if result:
+        # User selected a session
+        state_ctx.thread_id = result
+        session = session_manager.get_session(result)
+        if session:
+            state_ctx.mode = session['mode']
+            console.print(f"[bold green]Restored Session:[/] {session['title']} (Mode: {session['mode']})")
+    
+    return True

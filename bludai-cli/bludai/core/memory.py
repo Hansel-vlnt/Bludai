@@ -1,9 +1,15 @@
-from langgraph.checkpoint.memory import MemorySaver
+import sqlite3
+import os
+from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.store.memory import InMemoryStore
 
+DB_PATH = os.path.join(os.path.expanduser("~"), ".bludai_checkpoints.db")
+_conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+
 # Singleton instances for memory components
-# To persist across restarts, these can be swapped with SqliteSaver and SqliteStore
-_checkpointer = MemorySaver()
+_checkpointer = SqliteSaver(_conn)
+_checkpointer.setup()
+
 _store = InMemoryStore()
 
 def get_checkpointer():
