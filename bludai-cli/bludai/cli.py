@@ -92,14 +92,6 @@ def run_cli():
             if not text:
                 continue
                 
-            from bludai.core.session_manager import session_manager
-            existing = session_manager.get_session(state_ctx.thread_id)
-            if not existing:
-                title = text[:30] + ("..." if len(text) > 30 else "")
-                session_manager.create_or_update_session(state_ctx.thread_id, title, state_ctx.mode)
-            else:
-                session_manager.update_timestamp(state_ctx.thread_id)
-                
             # Check for slash commands
             if text.startswith("/"):
                 # Handle slash command
@@ -107,6 +99,14 @@ def run_cli():
                 if not continue_loop:
                     break
                 continue
+                
+            from bludai.core.session_manager import session_manager
+            existing = session_manager.get_session(state_ctx.thread_id)
+            if not existing:
+                title = text[:30] + ("..." if len(text) > 30 else "")
+                session_manager.create_or_update_session(state_ctx.thread_id, title, state_ctx.mode)
+            else:
+                session_manager.update_timestamp(state_ctx.thread_id)
                 
             # It's a natural language query - invoke LangGraph flow
             if not is_connected:
