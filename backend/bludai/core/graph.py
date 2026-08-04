@@ -3,7 +3,7 @@ from bludai.core.state import AgentState
 from bludai.nodes.supervisor import supervisor_node
 from bludai.nodes.developer import developer_node
 from bludai.nodes.executor import executor_node
-
+from bludai.core.memory import get_checkpointer, get_store
 # Initialize graph
 workflow = StateGraph(AgentState)
 
@@ -30,7 +30,7 @@ workflow.add_edge("Executor", "Supervisor")
 # Set entry point
 workflow.set_entry_point("Supervisor")
 
-from bludai.core.memory import get_checkpointer, get_store
+
 
 # Compile graph with memory components
 app = workflow.compile(

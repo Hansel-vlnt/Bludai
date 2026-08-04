@@ -1,0 +1,25 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "bludai"
+version = "1.0.0"
+description = "Bludai Core Backend Framework"
+readme = "../docs/README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "langgraph",
+    "langchain-core",
+    "pydantic>=2.0",
+    "prompt_toolkit>=3.0.0",
+    "langgraph-checkpoint-sqlite",
+    "fastapi>=0.100.0",
+    "uvicorn>=0.23.0",
+    "websockets>=11.0.3",
+    "questionary",
+    "rich"
+]
+
+[project.scripts]
+bludai = "bludai.cli:main"

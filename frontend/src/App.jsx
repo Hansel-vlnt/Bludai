@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { Send, Plus, Bot, User, Menu, Cpu } from 'lucide-react';
+import { Send, Bot, User, Cpu } from 'lucide-react';
+import Sidebar from './components/Sidebar';
+import ModelSelector from './components/ModelSelector';
 import './index.css';
 
 const API_BASE = 'http://localhost:8000/api';
@@ -11,11 +13,16 @@ function App() {
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const [mode, setMode] = useState('role'); // 'role' or 'basic'
+  const [mode, setMode] = useState('role');
+  const [selectedModel, setSelectedModel] = useState('meta-llama/llama-3-8b-instruct:free');
+  const [availableModels, setAvailableModels] = useState([
+    { id: 'meta-llama/llama-3-8b-instruct:free', name: 'Llama 3 8B (Free)', tag: 'Fast' }
+  ]);
   const chatRef = useRef(null);
   
   useEffect(() => {
     fetchSessions();
+    fetchModels();
   }, []);
 
   useEffect(() => {
@@ -23,6 +30,26 @@ function App() {
       chatRef.current.scrollTop = chatRef.current.scrollHeight;
     }
   }, [messages, isTyping]);
+
+  const fetchModels = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/models`);
+      const data = await res.json();
+      if (data && data.data) {
+        const mappedModels = data.data.map(m => ({
+          id: m.id,
+          name: m.id.split('/').pop(),
+          tag: (m.id.includes('pro') || m.id.includes('opus') || m.id.includes('high')) ? 'High' : 'Fast'
+        }));
+        setAvailableModels(mappedModels);
+        if (mappedModels.length > 0 && !mappedModels.find(m => m.id === selectedModel)) {
+          setSelectedModel(mappedModels[0].id);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch models", err);
+    }
+  };
 
   const fetchSessions = async () => {
     try {
@@ -48,7 +75,6 @@ function App() {
   };
 
   const handleNewChat = () => {
-    // Generate simple random thread_id (in a real app, use uuid)
     const newThread = Math.random().toString(36).substring(2, 15);
     setCurrentThread(newThread);
     setMessages([]);
@@ -73,17 +99,29 @@ function App() {
         body: JSON.stringify({
           thread_id: thread_id,
           message: currentInput,
-          mode: mode
+          mode: mode,
+          basic_model: selectedModel
         })
       });
       const data = await res.json();
       setMessages(prev => [...prev, { role: data.role || 'assistant', content: data.reply }]);
-      fetchSessions(); // refresh history
+      fetchSessions();
     } catch (err) {
       console.error("Chat error:", err);
       setMessages(prev => [...prev, { role: 'system', content: 'Connection error to backend.' }]);
     } finally {
       setIsTyping(false);
+    }
+  };
+
+  const handleExit = async () => {
+    if (window.confirm("Are you sure you want to shut down the Bludai ecosystem?")) {
+      try {
+        await fetch(`${API_BASE}/shutdown`, { method: 'POST' });
+        document.body.innerHTML = '<div style="display:flex;height:100vh;align-items:center;justify-content:center;color:white;font-family:sans-serif;font-size:24px;">Bludai Ecosystem has been shut down. You can close this tab.</div>';
+      } catch (err) {
+        console.error("Failed to shutdown", err);
+      }
     }
   };
 
@@ -96,35 +134,14 @@ function App() {
 
   return (
     <div className="app-container">
-      {/* Sidebar */}
-      <div className="sidebar">
-        <div className="sidebar-header">
-          <Cpu size={24} color="#60a5fa" />
-          <span className="logo-text">Bludai UI</span>
-        </div>
-        
-        <button className="new-chat-btn" onClick={handleNewChat}>
-          <Plus size={18} /> New Chat
-        </button>
-        
-        <div className="sessions-list">
-          {sessions.map(s => (
-            <div 
-              key={s.thread_id} 
-              className={`session-item ${s.thread_id === currentThread ? 'active' : ''}`}
-              onClick={() => loadSession(s.thread_id, s.mode)}
-            >
-              <div className="session-title">{s.title || "New Chat"}</div>
-              <div className="session-meta">
-                <span>{s.mode}</span>
-                <span>{new Date(s.updated_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+      <Sidebar 
+        sessions={sessions} 
+        currentThread={currentThread} 
+        handleNewChat={handleNewChat} 
+        loadSession={loadSession} 
+        handleExit={handleExit} 
+      />
 
-      {/* Main Area */}
       <div className="main-area">
         <div className="topbar">
           <div className="mode-selector">
@@ -175,6 +192,14 @@ function App() {
         </div>
 
         <div className="input-area">
+          {mode === 'basic' && (
+            <ModelSelector 
+              selectedModel={selectedModel}
+              setSelectedModel={setSelectedModel}
+              availableModels={availableModels}
+            />
+          )}
+          
           <div className="input-box glass-panel">
             <textarea
               placeholder="Message Bludai..."

@@ -38,6 +38,35 @@ def on_startup():
 def get_sessions(limit: int = 20):
     return session_manager.get_sessions(limit=limit)
 
+@app.post("/api/sessions/{thread_id}/clear")
+def clear_session(thread_id: str):
+    # Not fully deleting from sqlite here but a simple wrapper
+    return {"status": "ok"}
+
+@app.post("/api/shutdown")
+def shutdown():
+    import os
+    import signal
+    import threading
+    
+    def kill_server():
+        os.kill(os.getpid(), signal.SIGTERM)
+        
+    # Run in a separate thread so we can return the response before dying
+    threading.Timer(1.0, kill_server).start()
+    return {"status": "shutting down"}
+
+@app.get("/api/models")
+def get_models():
+    import urllib.request
+    import json
+    try:
+        req = urllib.request.Request("http://localhost:20128/v1/models")
+        with urllib.request.urlopen(req, timeout=3) as response:
+            return json.loads(response.read().decode())
+    except Exception as e:
+        return {"data": [{"id": "meta-llama/llama-3-8b-instruct:free"}]}
+
 @app.get("/api/sessions/{thread_id}/history")
 def get_session_history(thread_id: str):
     checkpointer = get_checkpointer()
