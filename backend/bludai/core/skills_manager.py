@@ -4,8 +4,8 @@ from pathlib import Path
 
 class SkillsManager:
     def __init__(self):
-        # Locate the skills directory relative to this file
-        self.skills_dir = Path(__file__).resolve().parent.parent / "skills"
+        # Locate the skills directory at the root of the monorepo
+        self.skills_dir = Path(__file__).resolve().parent.parent.parent.parent / "skills"
         self.skills = {}
 
     def load_all_skills(self):

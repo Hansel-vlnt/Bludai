@@ -401,7 +401,7 @@ textarea::placeholder {
   border: 1px solid var(--panel-border);
   border-radius: 12px;
   padding: 8px;
-  width: 260px;
+  width: 280px;
   box-shadow: 0 10px 30px rgba(0,0,0,0.5);
   z-index: 50;
 }
@@ -413,6 +413,40 @@ textarea::placeholder {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 1px;
+}
+
+.model-search-container {
+  padding: 0 8px 8px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  margin-bottom: 8px;
+}
+
+.model-search-input {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.model-search-input:focus {
+  border-color: rgba(59, 130, 246, 0.5);
+}
+
+.model-list-container {
+  max-height: 250px;
+  overflow-y: auto;
+}
+
+.model-dropdown-empty {
+  padding: 12px;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
 }
 
 .model-dropdown-item {

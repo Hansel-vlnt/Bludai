@@ -48,8 +48,15 @@ def shutdown():
     import os
     import signal
     import threading
+    import subprocess
     
     def kill_server():
+        # Kill the hidden frontend (Vite/Node) processes safely without killing other unrelated Node apps
+        if os.name == 'nt':
+            # Use PowerShell to find and kill only node processes running vite
+            kill_cmd = 'powershell -Command "Get-WmiObject Win32_Process -Filter \\"CommandLine LIKE \'%vite%\'\\" | Invoke-WmiMethod -Name Terminate"'
+            subprocess.run(kill_cmd, shell=True, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+            
         os.kill(os.getpid(), signal.SIGTERM)
         
     # Run in a separate thread so we can return the response before dying

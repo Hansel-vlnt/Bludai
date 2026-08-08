@@ -1,10 +1,7 @@
 @echo off
 if not "%~1"=="start" goto usage
 
-cd backend
-call .venv\Scripts\activate.bat
-cd ..
-python backend\launcher.py
+backend\.venv\Scripts\python.exe backend\launcher.py
 
 exit /b 0
 

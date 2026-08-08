@@ -1,9 +1,12 @@
 import os
 import sys
 import webbrowser
+import subprocess
 from rich.console import Console
 import questionary
 from questionary import Style
+
+CREATE_NO_WINDOW = 0x08000000
 
 console = Console()
 
@@ -44,28 +47,46 @@ def run():
     ).ask()
     
     if choice == "web":
-        console.print("\n[bold green]Starting Backend API...[/]")
-        os.system('start "Bludai Backend API" /min cmd /c "cd backend && uvicorn bludai.api.server:app --reload"')
+        console.print("\n[bold green]Starting Backend API in background...[/]")
+        subprocess.Popen(
+            [r".venv\Scripts\python.exe", "-m", "uvicorn", "bludai.api.server:app", "--reload"],
+            cwd="backend",
+            creationflags=CREATE_NO_WINDOW
+        )
         
-        console.print("[bold green]Starting Web UI...[/]")
-        os.system('start "Bludai Web UI" /min cmd /c "cd frontend && npm run dev"')
+        console.print("[bold green]Starting Web UI in background...[/]")
+        subprocess.Popen(
+            ["npm.cmd", "run", "dev"],
+            cwd="frontend",
+            creationflags=CREATE_NO_WINDOW,
+            shell=True
+        )
         
         console.print("[bold cyan]Opening http://localhost:5173 in your browser...[/]")
         webbrowser.open("http://localhost:5173")
         
     elif choice == "cli":
-        os.system("cd backend && python -m bludai.cli")
+        os.system("cd backend && .venv\\Scripts\\python -m bludai.cli")
         
     elif choice == "all":
-        console.print("\n[bold green]Starting Backend API...[/]")
-        os.system('start "Bludai Backend API" /min cmd /c "cd backend && uvicorn bludai.api.server:app --reload"')
+        console.print("\n[bold green]Starting Backend API in background...[/]")
+        subprocess.Popen(
+            [r".venv\Scripts\python.exe", "-m", "uvicorn", "bludai.api.server:app", "--reload"],
+            cwd="backend",
+            creationflags=CREATE_NO_WINDOW
+        )
         
-        console.print("[bold green]Starting Web UI...[/]")
-        os.system('start "Bludai Web UI" /min cmd /c "cd frontend && npm run dev"')
+        console.print("[bold green]Starting Web UI in background...[/]")
+        subprocess.Popen(
+            ["npm.cmd", "run", "dev"],
+            cwd="frontend",
+            creationflags=CREATE_NO_WINDOW,
+            shell=True
+        )
         
         webbrowser.open("http://localhost:5173")
         
-        os.system("cd backend && python -m bludai.cli")
+        os.system("cd backend && .venv\\Scripts\\python -m bludai.cli")
         
     else:
         sys.exit(0)
