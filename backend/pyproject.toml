@@ -6,7 +6,6 @@ build-backend = "hatchling.build"
 name = "bludai"
 version = "1.0.0"
 description = "Bludai Core Backend Framework"
-readme = "../docs/README.md"
 requires-python = ">=3.9"
 dependencies = [
     "langgraph",

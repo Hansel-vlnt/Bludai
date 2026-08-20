@@ -45,6 +45,39 @@ def cmd_help(args, state_ctx):
     console.print()
     return True
 
+@registry.register("web", "Launch the Web UI (browser) and background API server.")
+def cmd_web(args, state_ctx):
+    import os, subprocess, webbrowser
+    root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    backend_dir = os.path.join(root_dir, "backend")
+    web_ui_dir = os.path.join(root_dir, "web-ui")
+    python_exe = os.path.join(backend_dir, ".venv", "Scripts", "python.exe") if os.name == "nt" else os.path.join(backend_dir, ".venv", "bin", "python")
+    npm_cmd = "npm.cmd" if os.name == "nt" else "npm"
+    create_no_window = 0x08000000 if os.name == "nt" else 0
+
+    console.print("\n[bold green]Starting Backend API in background...[/]")
+    subprocess.Popen(
+        [python_exe, "-m", "uvicorn", "bludai.api.server:app", "--reload"],
+        cwd=backend_dir,
+        creationflags=create_no_window
+    )
+    
+    console.print("[bold green]Starting Web UI in background...[/]")
+    subprocess.Popen(
+        [npm_cmd, "run", "dev"],
+        cwd=web_ui_dir,
+        creationflags=create_no_window,
+        shell=True
+    )
+    
+    console.print("[bold cyan]Opening http://localhost:5173 in your browser...[/]\n")
+    webbrowser.open("http://localhost:5173")
+    return True
+
+@registry.register("ui", "Alias for /web.")
+def cmd_ui(args, state_ctx):
+    return cmd_web(args, state_ctx)
+
 @registry.register("reset", "Reset the conversation state and start a new session.")
 def cmd_reset(args, state_ctx):
     state_ctx.clear()

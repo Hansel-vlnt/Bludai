@@ -22,10 +22,13 @@ custom_style = Style([
     ('text', ''),
 ])
 
-ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-BACKEND_DIR = os.path.join(ROOT_DIR, "backend")
+# Resolve directories dynamically
+# bludai package is inside backend/bludai
+BLUDAI_PKG_DIR = os.path.dirname(os.path.abspath(__file__))
+BACKEND_DIR = os.path.abspath(os.path.join(BLUDAI_PKG_DIR, ".."))
+ROOT_DIR = os.path.abspath(os.path.join(BACKEND_DIR, ".."))
 WEB_UI_DIR = os.path.join(ROOT_DIR, "web-ui")
-PYTHON_EXE = os.path.join(BACKEND_DIR, ".venv", "Scripts", "python.exe") if os.name == "nt" else os.path.join(BACKEND_DIR, ".venv", "bin", "python")
+PYTHON_EXE = sys.executable or (os.path.join(BACKEND_DIR, ".venv", "Scripts", "python.exe") if os.name == "nt" else os.path.join(BACKEND_DIR, ".venv", "bin", "python"))
 
 def print_banner():
     os.system("cls" if os.name == "nt" else "clear")
@@ -39,7 +42,7 @@ def run():
     print_banner()
     
     choice = questionary.select(
-        "",
+        "Select interface to launch:",
         choices=[
             questionary.Choice("Web UI (Open in Browser)", "web"),
             questionary.Choice("Terminal UI (Interactive CLI)", "cli"),
@@ -47,7 +50,7 @@ def run():
             questionary.Choice("Exit", "exit")
         ],
         style=custom_style,
-        qmark="",
+        qmark="?",
         pointer=">"
     ).ask()
     

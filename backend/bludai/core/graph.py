@@ -12,10 +12,20 @@ workflow.add_node("Supervisor", supervisor_node)
 workflow.add_node("Developer", developer_node)
 workflow.add_node("Executor", executor_node)
 
+def route_supervisor(state: AgentState) -> str:
+    next_node = state.get("next", "FINISH")
+    if isinstance(next_node, str):
+        cleaned = next_node.strip().upper()
+        if cleaned == "DEVELOPER":
+            return "Developer"
+        elif cleaned == "EXECUTOR":
+            return "Executor"
+    return "FINISH"
+
 # Add routing conditional edges from Supervisor
 workflow.add_conditional_edges(
     "Supervisor",
-    lambda state: state["next"],
+    route_supervisor,
     {
         "Developer": "Developer",
         "Executor": "Executor",

@@ -197,5 +197,16 @@ def run_cli():
         except Exception as e:
             console.print(f"[bold red]CLI Error:[/] {e}")
 
+def main():
+    if len(sys.argv) > 1 and sys.argv[1] in ("cli", "--cli", "-c"):
+        run_cli()
+    else:
+        try:
+            from bludai.launcher import run as run_launcher
+            run_launcher()
+        except Exception as e:
+            console.print(f"[bold red]Launcher error, falling back to CLI:[/] {e}")
+            run_cli()
+
 if __name__ == "__main__":
-    run_cli()
+    main()
