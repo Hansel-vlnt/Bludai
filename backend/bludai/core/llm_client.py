@@ -1,8 +1,12 @@
 import urllib.request
 import json
 import os
+from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from rich.console import Console
+
+# Load environment variables from backend/.env if it exists
+load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".env"))
 
 console = Console()
 
