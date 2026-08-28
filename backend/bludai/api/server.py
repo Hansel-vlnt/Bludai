@@ -5,9 +5,13 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
+from dotenv import load_dotenv
 
 # Ensure workspace is in path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+
+# Load .env variables
+load_dotenv(os.path.join(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")), ".env"))
 
 from bludai.core.session_manager import session_manager
 from bludai.core.memory import get_checkpointer
@@ -67,11 +71,17 @@ def shutdown():
 def get_models():
     import urllib.request
     import json
+    import os
     try:
+        api_key = os.environ.get("NINE_ROUTER_API_KEY") or os.environ.get("OPENAI_API_KEY") or ""
         req = urllib.request.Request("http://localhost:20128/v1/models")
+        if api_key:
+            req.add_header("Authorization", f"Bearer {api_key}")
+            
         with urllib.request.urlopen(req, timeout=3) as response:
             return json.loads(response.read().decode())
     except Exception as e:
+        print(f"Error fetching models: {e}")
         return {"data": [{"id": "meta-llama/llama-3-8b-instruct:free"}]}
 
 @app.get("/api/sessions/{thread_id}/history")
