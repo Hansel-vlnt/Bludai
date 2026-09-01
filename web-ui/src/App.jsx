@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import { Send, Bot, User, Cpu } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import ModelSelector from './components/ModelSelector';
+import SettingsModal from './components/SettingsModal';
 import './index.css';
 
 const API_BASE = 'http://localhost:8000/api';
@@ -14,6 +15,7 @@ function App() {
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [mode, setMode] = useState('role');
+  const [showSettings, setShowSettings] = useState(false);
   const [selectedModel, setSelectedModel] = useState('meta-llama/llama-3-8b-instruct:free');
   const [availableModels, setAvailableModels] = useState([
     { id: 'meta-llama/llama-3-8b-instruct:free', name: 'Llama 3 8B (Free)', tag: 'Fast' }
@@ -134,12 +136,15 @@ function App() {
 
   return (
     <div className="app-container">
+      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
+      
       <Sidebar 
         sessions={sessions} 
         currentThread={currentThread} 
         handleNewChat={handleNewChat} 
         loadSession={loadSession} 
         handleExit={handleExit} 
+        setShowSettings={setShowSettings}
       />
 
       <div className="main-area">

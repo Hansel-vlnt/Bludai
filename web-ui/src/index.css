@@ -1,19 +1,19 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
-  --bg-color: #0b0f19;
-  --panel-bg: rgba(20, 25, 35, 0.65);
-  --panel-border: rgba(255, 255, 255, 0.08);
-  --text-primary: #f8fafc;
-  --text-secondary: #94a3b8;
-  --accent-color: #3b82f6;
-  --accent-hover: #2563eb;
-  --chat-user-bg: rgba(59, 130, 246, 0.15);
-  --chat-user-border: rgba(59, 130, 246, 0.3);
-  --chat-ai-bg: rgba(30, 41, 59, 0.5);
-  --chat-ai-border: rgba(255, 255, 255, 0.05);
+  --bg-color: #050505;
+  --panel-bg: #0a0a0a;
+  --panel-border: #333;
+  --text-primary: #00E5FF;
+  --text-secondary: #008b99;
+  --accent-color: #00E5FF;
+  --accent-hover: #00b3cc;
+  --chat-user-bg: transparent;
+  --chat-user-border: #00E5FF;
+  --chat-ai-bg: transparent;
+  --chat-ai-border: #444;
   
-  --shadow-glow: 0 0 20px rgba(59, 130, 246, 0.15);
+  --shadow-glow: 0 0 10px rgba(0, 229, 255, 0.2);
 }
 
 * {
@@ -23,7 +23,7 @@
 }
 
 body {
-  font-family: 'Inter', sans-serif;
+  font-family: 'JetBrains Mono', monospace;
   background-color: var(--bg-color);
   color: var(--text-primary);
   height: 100vh;
@@ -37,12 +37,11 @@ body {
   height: 100%;
 }
 
-/* Glassmorphism utility */
+/* Terminal Panel utility */
 .glass-panel {
   background: var(--panel-bg);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--panel-border);
+  border-radius: 0 !important;
 }
 
 /* Layout */
@@ -50,8 +49,7 @@ body {
   display: flex;
   width: 100%;
   height: 100%;
-  background: radial-gradient(circle at top right, rgba(29, 78, 216, 0.15), transparent 40%),
-              radial-gradient(circle at bottom left, rgba(124, 58, 237, 0.1), transparent 40%);
+  background: var(--bg-color);
 }
 
 /* Sidebar */
@@ -88,7 +86,7 @@ body {
   background: var(--accent-color);
   color: white;
   border: none;
-  border-radius: 8px;
+  border-radius: 0;
   font-weight: 500;
   cursor: pointer;
   display: flex;
@@ -115,7 +113,7 @@ body {
 
 .session-item {
   padding: 12px;
-  border-radius: 6px;
+  border-radius: 0;
   cursor: pointer;
   transition: all 0.2s ease;
   display: flex;
@@ -172,7 +170,7 @@ body {
   gap: 8px;
   background: rgba(0, 0, 0, 0.3);
   padding: 4px;
-  border-radius: 8px;
+  border-radius: 0;
   border: 1px solid var(--panel-border);
 }
 
@@ -181,7 +179,7 @@ body {
   border: none;
   color: var(--text-secondary);
   padding: 6px 12px;
-  border-radius: 6px;
+  border-radius: 0;
   font-size: 0.85rem;
   font-weight: 500;
   cursor: pointer;
@@ -226,21 +224,22 @@ body {
 
 .message-bubble {
   padding: 16px;
-  border-radius: 12px;
+  border-radius: 0;
   font-size: 0.95rem;
   line-height: 1.5;
+  border-left: 3px solid transparent;
 }
 
 .message-wrapper.user .message-bubble {
   background: var(--chat-user-bg);
   border: 1px solid var(--chat-user-border);
-  border-bottom-right-radius: 4px;
+  border-left: 3px solid var(--accent-color);
 }
 
 .message-wrapper.ai .message-bubble {
   background: var(--chat-ai-bg);
   border: 1px solid var(--chat-ai-border);
-  border-bottom-left-radius: 4px;
+  border-left: 3px solid #666;
 }
 
 .message-sender {
@@ -263,7 +262,7 @@ body {
 .markdown-body pre {
   background: #0f172a;
   padding: 12px;
-  border-radius: 8px;
+  border-radius: 0;
   overflow-x: auto;
   margin: 12px 0;
   border: 1px solid var(--panel-border);
@@ -273,7 +272,7 @@ body {
   font-size: 0.85em;
   background: rgba(0,0,0,0.3);
   padding: 2px 4px;
-  border-radius: 4px;
+  border-radius: 0;
 }
 .markdown-body pre code {
   background: transparent;
@@ -298,7 +297,7 @@ body {
   gap: 12px;
   background: rgba(30, 41, 59, 0.6);
   border: 1px solid var(--panel-border);
-  border-radius: 16px;
+  border-radius: 0;
   padding: 12px 16px;
   box-shadow: var(--shadow-glow);
   transition: border-color 0.2s ease;
@@ -331,7 +330,7 @@ textarea::placeholder {
   border: none;
   width: 40px;
   height: 40px;
-  border-radius: 50%;
+  border-radius: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -362,7 +361,7 @@ textarea::placeholder {
 }
 ::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
+  border-radius: 0;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.2);
@@ -380,7 +379,7 @@ textarea::placeholder {
   border: 1px solid var(--panel-border);
   color: var(--text-primary);
   padding: 6px 12px;
-  border-radius: 8px;
+  border-radius: 0;
   font-size: 0.8rem;
   font-family: inherit;
   cursor: pointer;
@@ -401,7 +400,7 @@ textarea::placeholder {
   background: rgba(20, 25, 35, 0.95);
   backdrop-filter: blur(12px);
   border: 1px solid var(--panel-border);
-  border-radius: 12px;
+  border-radius: 0;
   padding: 8px;
   width: 280px;
   box-shadow: 0 10px 30px rgba(0,0,0,0.5);
@@ -429,7 +428,7 @@ textarea::placeholder {
   border: 1px solid rgba(255, 255, 255, 0.1);
   color: var(--text-primary);
   padding: 8px 12px;
-  border-radius: 6px;
+  border-radius: 0;
   font-size: 0.8rem;
   outline: none;
   transition: border-color 0.2s;
@@ -453,7 +452,7 @@ textarea::placeholder {
 
 .model-dropdown-item {
   padding: 10px 12px;
-  border-radius: 8px;
+  border-radius: 0;
   cursor: pointer;
   display: flex;
   justify-content: space-between;
@@ -473,7 +472,115 @@ textarea::placeholder {
 .model-tag {
   background: rgba(255, 255, 255, 0.1);
   padding: 2px 6px;
-  border-radius: 10px;
+  border-radius: 0;
   font-size: 0.7rem;
   color: var(--text-secondary);
 }
+
+ / *   S e t t i n g s   M o d a l   * / 
+ . s e t t i n g s - o v e r l a y   { 
+     p o s i t i o n :   a b s o l u t e ; 
+     t o p :   0 ;   l e f t :   0 ;   r i g h t :   0 ;   b o t t o m :   0 ; 
+     b a c k g r o u n d :   r g b a ( 0 , 0 , 0 , 0 . 8 ) ; 
+     d i s p l a y :   f l e x ; 
+     a l i g n - i t e m s :   c e n t e r ; 
+     j u s t i f y - c o n t e n t :   c e n t e r ; 
+     z - i n d e x :   1 0 0 0 ; 
+     b a c k d r o p - f i l t e r :   b l u r ( 4 p x ) ; 
+ } 
+ . s e t t i n g s - m o d a l   { 
+     b a c k g r o u n d :   v a r ( - - b g - c o l o r ) ; 
+     b o r d e r :   1 p x   s o l i d   v a r ( - - a c c e n t - c o l o r ) ; 
+     w i d t h :   4 5 0 p x ; 
+     b o x - s h a d o w :   v a r ( - - s h a d o w - g l o w ) ; 
+     d i s p l a y :   f l e x ; 
+     f l e x - d i r e c t i o n :   c o l u m n ; 
+ } 
+ . s e t t i n g s - h e a d e r   { 
+     p a d d i n g :   1 6 p x ; 
+     b o r d e r - b o t t o m :   1 p x   d a s h e d   v a r ( - - p a n e l - b o r d e r ) ; 
+     d i s p l a y :   f l e x ; 
+     j u s t i f y - c o n t e n t :   s p a c e - b e t w e e n ; 
+     a l i g n - i t e m s :   c e n t e r ; 
+ } 
+ . s e t t i n g s - h e a d e r   h 3   { 
+     f o n t - w e i g h t :   5 0 0 ; 
+     f o n t - s i z e :   1 . 1 r e m ; 
+ } 
+ . c l o s e - b t n   { 
+     b a c k g r o u n d :   t r a n s p a r e n t ; 
+     b o r d e r :   n o n e ; 
+     c o l o r :   v a r ( - - t e x t - s e c o n d a r y ) ; 
+     c u r s o r :   p o i n t e r ; 
+ } 
+ . c l o s e - b t n : h o v e r   {   c o l o r :   v a r ( - - a c c e n t - c o l o r ) ;   } 
+ . s e t t i n g s - b o d y   { 
+     p a d d i n g :   2 4 p x   1 6 p x ; 
+     d i s p l a y :   f l e x ; 
+     f l e x - d i r e c t i o n :   c o l u m n ; 
+     g a p :   1 6 p x ; 
+ } 
+ . s e t t i n g - g r o u p   { 
+     d i s p l a y :   f l e x ; 
+     f l e x - d i r e c t i o n :   c o l u m n ; 
+     g a p :   8 p x ; 
+ } 
+ . s e t t i n g - g r o u p   l a b e l   { 
+     f o n t - s i z e :   0 . 8 5 r e m ; 
+     c o l o r :   v a r ( - - t e x t - s e c o n d a r y ) ; 
+ } 
+ . t e r m i n a l - i n p u t   { 
+     b a c k g r o u n d :   t r a n s p a r e n t ; 
+     b o r d e r :   1 p x   s o l i d   v a r ( - - p a n e l - b o r d e r ) ; 
+     c o l o r :   v a r ( - - t e x t - p r i m a r y ) ; 
+     p a d d i n g :   1 0 p x ; 
+     f o n t - f a m i l y :   " J e t B r a i n s   M o n o " ,   m o n o s p a c e ; 
+     o u t l i n e :   n o n e ; 
+ } 
+ . t e r m i n a l - i n p u t : f o c u s   { 
+     b o r d e r - c o l o r :   v a r ( - - a c c e n t - c o l o r ) ; 
+ } 
+ . s e t t i n g - h e l p   { 
+     f o n t - s i z e :   0 . 7 5 r e m ; 
+     c o l o r :   # 6 6 6 ; 
+ } 
+ . s e t t i n g s - s t a t u s   { 
+     f o n t - s i z e :   0 . 8 5 r e m ; 
+     p a d d i n g :   8 p x ; 
+     b o r d e r - l e f t :   2 p x   s o l i d ; 
+ } 
+ . s e t t i n g s - s t a t u s . s u c c e s s   {   c o l o r :   # 0 0 E 5 F F ;   b o r d e r - c o l o r :   # 0 0 E 5 F F ;   } 
+ . s e t t i n g s - s t a t u s . e r r o r   {   c o l o r :   # e f 4 4 4 4 ;   b o r d e r - c o l o r :   # e f 4 4 4 4 ;   } 
+ . s e t t i n g s - f o o t e r   { 
+     p a d d i n g :   1 6 p x ; 
+     b o r d e r - t o p :   1 p x   d a s h e d   v a r ( - - p a n e l - b o r d e r ) ; 
+     d i s p l a y :   f l e x ; 
+     j u s t i f y - c o n t e n t :   f l e x - e n d ; 
+     g a p :   1 2 p x ; 
+ } 
+ . c a n c e l - b t n   { 
+     b a c k g r o u n d :   t r a n s p a r e n t ; 
+     b o r d e r :   1 p x   s o l i d   v a r ( - - p a n e l - b o r d e r ) ; 
+     c o l o r :   v a r ( - - t e x t - s e c o n d a r y ) ; 
+     p a d d i n g :   8 p x   1 6 p x ; 
+     c u r s o r :   p o i n t e r ; 
+     f o n t - f a m i l y :   i n h e r i t ; 
+ } 
+ . c a n c e l - b t n : h o v e r   {   b a c k g r o u n d :   r g b a ( 2 5 5 , 2 5 5 , 2 5 5 , 0 . 0 5 ) ;   } 
+ . s a v e - b t n   { 
+     b a c k g r o u n d :   v a r ( - - a c c e n t - c o l o r ) ; 
+     c o l o r :   # 0 0 0 ; 
+     b o r d e r :   n o n e ; 
+     p a d d i n g :   8 p x   1 6 p x ; 
+     c u r s o r :   p o i n t e r ; 
+     d i s p l a y :   f l e x ; 
+     a l i g n - i t e m s :   c e n t e r ; 
+     g a p :   8 p x ; 
+     f o n t - f a m i l y :   i n h e r i t ; 
+     f o n t - w e i g h t :   6 0 0 ; 
+ } 
+ . s a v e - b t n : h o v e r   {   f i l t e r :   b r i g h t n e s s ( 1 . 2 ) ;   } 
+ . s a v e - b t n : d i s a b l e d   {   o p a c i t y :   0 . 5 ;   c u r s o r :   n o t - a l l o w e d ;   } 
+ 
+ 
+ 

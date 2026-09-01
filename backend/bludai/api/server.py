@@ -33,6 +33,30 @@ class ChatRequest(BaseModel):
     mode: str = "role"
     basic_model: str = "meta-llama/llama-3-8b-instruct:free"
 
+class SettingsRequest(BaseModel):
+    nine_router_api_key: str
+
+@app.get("/api/settings")
+def get_settings():
+    return {
+        "nine_router_api_key": os.environ.get("NINE_ROUTER_API_KEY", "")
+    }
+
+@app.post("/api/settings")
+def update_settings(req: SettingsRequest):
+    env_path = os.path.join(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")), ".env")
+    
+    # Update current process environment
+    os.environ["NINE_ROUTER_API_KEY"] = req.nine_router_api_key
+    os.environ["OPENAI_API_KEY"] = req.nine_router_api_key
+    
+    # Write to .env file
+    with open(env_path, "w") as f:
+        f.write(f'NINE_ROUTER_API_KEY="{req.nine_router_api_key}"\n')
+        f.write(f'OPENAI_API_KEY="{req.nine_router_api_key}"\n')
+        
+    return {"status": "success"}
+
 @app.on_event("startup")
 def on_startup():
     from bludai.core.skills_manager import skills_manager
