@@ -74,18 +74,17 @@ def clear_session(thread_id: str):
 @app.post("/api/shutdown")
 def shutdown():
     import os
-    import signal
     import threading
     import subprocess
     
     def kill_server():
         # Kill the hidden frontend (Vite/Node) processes safely without killing other unrelated Node apps
         if os.name == 'nt':
-            # Use PowerShell to find and kill only node processes running vite
-            kill_cmd = 'powershell -Command "Get-WmiObject Win32_Process -Filter \\"CommandLine LIKE \'%vite%\'\\" | Invoke-WmiMethod -Name Terminate"'
+            kill_cmd = 'powershell -Command "Get-CimInstance Win32_Process -Filter \\"CommandLine LIKE \'%vite%\'\\" | Invoke-CimMethod -MethodName Terminate"'
             subprocess.run(kill_cmd, shell=True, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
             
-        os.kill(os.getpid(), signal.SIGTERM)
+        # Hard exit the backend to prevent ghost processes on port 8000
+        os._exit(0)
         
     # Run in a separate thread so we can return the response before dying
     threading.Timer(1.0, kill_server).start()
