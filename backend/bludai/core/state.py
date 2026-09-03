@@ -9,3 +9,5 @@ class AgentState(TypedDict):
     checklist: str
     # The next node to execute ("Developer", "Executor", or "FINISH")
     next: str
+    # The temperature for model generation (0.0 to 1.0)
+    temperature: float

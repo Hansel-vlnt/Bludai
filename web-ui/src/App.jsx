@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import { Send, Bot, User, Cpu } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import ModelSelector from './components/ModelSelector';
+import TemperatureSlider from './components/TemperatureSlider';
 import SettingsModal from './components/SettingsModal';
 import './index.css';
 
@@ -17,6 +18,7 @@ function App() {
   const [mode, setMode] = useState('role');
   const [showSettings, setShowSettings] = useState(false);
   const [selectedModel, setSelectedModel] = useState('meta-llama/llama-3-8b-instruct:free');
+  const [temperature, setTemperature] = useState(0.5);
   const [availableModels, setAvailableModels] = useState([
     { id: 'meta-llama/llama-3-8b-instruct:free', name: 'Llama 3 8B (Free)', tag: 'Fast' }
   ]);
@@ -102,7 +104,8 @@ function App() {
           thread_id: thread_id,
           message: currentInput,
           mode: mode,
-          basic_model: selectedModel
+          basic_model: selectedModel,
+          temperature: temperature
         })
       });
       const data = await res.json();
@@ -207,13 +210,16 @@ function App() {
         </div>
 
         <div className="input-area">
-          {mode === 'basic' && (
-            <ModelSelector 
-              selectedModel={selectedModel}
-              setSelectedModel={setSelectedModel}
-              availableModels={availableModels}
-            />
-          )}
+          <div className="controls-row" style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+            {mode === 'basic' && (
+              <ModelSelector 
+                selectedModel={selectedModel}
+                setSelectedModel={setSelectedModel}
+                availableModels={availableModels}
+              />
+            )}
+            <TemperatureSlider temperature={temperature} setTemperature={setTemperature} />
+          </div>
           
           <div className="input-box glass-panel">
             <textarea

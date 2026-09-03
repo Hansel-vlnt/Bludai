@@ -20,7 +20,7 @@ from bludai.core.memory import get_store
 def supervisor_node(state: AgentState) -> dict:
     """Orchestrator node that checks progress against the checklist and routes to workers."""
     # Get 9Router client for this specific role
-    llm = get_llm_client(role="Supervisor")
+    llm = get_llm_client(role="Supervisor", temperature=state.get(\'temperature\', 0.0))
     
     # Inject loaded skills playbooks if any
     skills_prompt = skills_manager.get_skill_system_prompt_addition()

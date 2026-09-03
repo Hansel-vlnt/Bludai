@@ -5,7 +5,7 @@ from bludai.core.state import AgentState
 
 def executor_node(state: AgentState) -> dict:
     """Executor node that runs shell commands and returns terminal output summaries."""
-    llm = get_llm_client(role="Executor")
+    llm = get_llm_client(role="Executor", temperature=state.get(\'temperature\', 0.0))
     
     # Bind shell tools
     llm_with_tools = llm.bind_tools(shell_tools)

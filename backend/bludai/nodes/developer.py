@@ -5,7 +5,7 @@ from bludai.core.state import AgentState
 
 def developer_node(state: AgentState) -> dict:
     """Developer node that manipulates files and returns a text summary of its work."""
-    llm = get_llm_client(role="Developer")
+    llm = get_llm_client(role="Developer", temperature=state.get(\'temperature\', 0.0))
     
     # Bind file tools
     llm_with_tools = llm.bind_tools(file_tools)

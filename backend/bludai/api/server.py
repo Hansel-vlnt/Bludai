@@ -32,6 +32,7 @@ class ChatRequest(BaseModel):
     message: str
     mode: str = "role"
     basic_model: str = "meta-llama/llama-3-8b-instruct:free"
+    temperature: float = 0.5
 
 class SettingsRequest(BaseModel):
     nine_router_api_key: str
@@ -141,7 +142,8 @@ def chat(req: ChatRequest):
         session_manager.update_timestamp(req.thread_id)
 
     inputs = {
-        "messages": [HumanMessage(content=req.message)]
+        "messages": [HumanMessage(content=req.message)],
+        "temperature": req.temperature
     }
     config = {"configurable": {"thread_id": req.thread_id}}
 
