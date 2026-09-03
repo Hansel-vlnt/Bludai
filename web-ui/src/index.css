@@ -584,3 +584,28 @@ textarea::placeholder {
 
 
 
+
+/* Token Tracker */
+.token-tracker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 6px 10px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--panel-border);
+  border-left: 2px solid var(--accent-color);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+.token-main {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--accent-color);
+}
+.token-details {
+  opacity: 0.7;
+}
+

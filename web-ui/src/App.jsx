@@ -106,7 +106,11 @@ function App() {
         })
       });
       const data = await res.json();
-      setMessages(prev => [...prev, { role: data.role || 'assistant', content: data.reply }]);
+      setMessages(prev => [...prev, { 
+        role: data.role || 'assistant', 
+        content: data.reply,
+        tokens: data.tokens 
+      }]);
       fetchSessions();
     } catch (err) {
       console.error("Chat error:", err);
@@ -182,6 +186,12 @@ function App() {
               </div>
               <div className="message-bubble">
                 <ReactMarkdown>{msg.content}</ReactMarkdown>
+                {msg.tokens && msg.tokens.total > 0 && (
+                  <div className="token-tracker">
+                    <span className="token-main"><Cpu size={12}/> Tokens: {msg.tokens.total.toLocaleString()}</span>
+                    <span className="token-details">[In: {msg.tokens.input.toLocaleString()} | Out: {msg.tokens.output.toLocaleString()}]</span>
+                  </div>
+                )}
               </div>
             </div>
           ))}

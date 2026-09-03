@@ -145,6 +145,25 @@ def chat(req: ChatRequest):
     }
     config = {"configurable": {"thread_id": req.thread_id}}
 
+    checkpointer = get_checkpointer()
+    state = checkpointer.get(config)
+    initial_msg_count = len(state["channel_values"].get("messages", [])) if state else 0
+
+    def calculate_tokens(messages, start_idx):
+        input_tokens = 0
+        output_tokens = 0
+        for msg in messages[start_idx:]:
+            if isinstance(msg, AIMessage):
+                usage = getattr(msg, "usage_metadata", None)
+                if usage:
+                    input_tokens += usage.get("input_tokens", 0)
+                    output_tokens += usage.get("output_tokens", 0)
+                elif hasattr(msg, "response_metadata") and "token_usage" in msg.response_metadata:
+                    tokens = msg.response_metadata["token_usage"]
+                    input_tokens += tokens.get("prompt_tokens", 0)
+                    output_tokens += tokens.get("completion_tokens", 0)
+        return {"input": input_tokens, "output": output_tokens, "total": input_tokens + output_tokens}
+
     if req.mode == "basic":
         from bludai.core.graph_basic import basic_app
         inputs["basic_model"] = req.basic_model
@@ -152,19 +171,18 @@ def chat(req: ChatRequest):
         try:
             result = basic_app.invoke(inputs, config=config)
             final_messages = result.get("messages", [])
+            tokens = calculate_tokens(final_messages, initial_msg_count)
+            
             if final_messages:
                 last_msg = final_messages[-1]
-                return {"reply": last_msg.content, "role": "assistant"}
-            return {"reply": "", "role": "assistant"}
+                return {"reply": last_msg.content, "role": "assistant", "tokens": tokens}
+            return {"reply": "", "role": "assistant", "tokens": tokens}
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
     else:
         # Role mode
         from bludai.core.graph import app as compiled_app
         
-        # Get existing checklist from state if any
-        checkpointer = get_checkpointer()
-        state = checkpointer.get(config)
         checklist = ""
         if state and "channel_values" in state:
             checklist = state["channel_values"].get("checklist", "")
@@ -175,10 +193,12 @@ def chat(req: ChatRequest):
         try:
             result = compiled_app.invoke(inputs, config=config)
             final_messages = result.get("messages", [])
+            tokens = calculate_tokens(final_messages, initial_msg_count)
+            
             # In role mode, we return the last AI message
             for msg in reversed(final_messages):
                 if isinstance(msg, AIMessage) and msg.content:
-                    return {"reply": msg.content, "role": "assistant"}
-            return {"reply": "Task completed.", "role": "assistant"}
+                    return {"reply": msg.content, "role": "assistant", "tokens": tokens}
+            return {"reply": "Task completed.", "role": "assistant", "tokens": tokens}
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
