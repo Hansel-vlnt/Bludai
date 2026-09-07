@@ -2,6 +2,7 @@ from pydantic import BaseModel, Field
 from langchain_core.messages import SystemMessage, AIMessage
 from bludai.core.llm_client import get_llm_client
 from bludai.core.skills_manager import skills_manager
+from bludai.core.settings_manager import settings_manager
 from bludai.core.state import AgentState
 
 class SupervisorResponse(BaseModel):
@@ -20,7 +21,7 @@ from bludai.core.memory import get_store
 def supervisor_node(state: AgentState) -> dict:
     """Orchestrator node that checks progress against the checklist and routes to workers."""
     # Get 9Router client for this specific role
-    llm = get_llm_client(role="Supervisor", temperature=state.get(\'temperature\', 0.0))
+    llm = get_llm_client(role="Supervisor", temperature=state.get("temperature", 0.0))
     
     # Inject loaded skills playbooks if any
     skills_prompt = skills_manager.get_skill_system_prompt_addition()
@@ -32,7 +33,10 @@ def supervisor_node(state: AgentState) -> dict:
         results = store.search(("facts", "user"))
         if results:
             facts = "\n- ".join([item.value.get("fact", str(item.value)) for item in results])
-            
+    # Query custom instructions/rules from settings
+    custom_rules = settings_manager.get_system_instructions()
+    rules_section = f"\n[USER CUSTOM INSTRUCTIONS / PLATFORM RULES]:\n{custom_rules}\n" if custom_rules else ""
+
     system_prompt = f"""You are the Supervisor (Orchestrator) for the BLUDAI Multi-Agent System.
 Your job is to coordinate a Developer node (creates/modifies files) and an Executor node (runs terminal commands) to solve the user's request.
 
@@ -49,6 +53,7 @@ Operational Guidelines:
 - {facts}
 
 {skills_prompt}
+{rules_section}
 """
     
     # Bind structured output

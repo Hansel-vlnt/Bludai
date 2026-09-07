@@ -27,7 +27,26 @@ function App() {
   useEffect(() => {
     fetchSessions();
     fetchModels();
+    fetchSettings();
   }, []);
+
+  const fetchSettings = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/settings`);
+      const data = await res.json();
+      if (data.theme_accent) {
+        document.documentElement.setAttribute('data-theme', data.theme_accent);
+      }
+      if (data.default_temperature !== undefined) {
+        setTemperature(data.default_temperature);
+      }
+      if (data.default_model) {
+        setSelectedModel(data.default_model);
+      }
+    } catch (err) {
+      console.error("Failed to load settings in App", err);
+    }
+  };
 
   useEffect(() => {
     if (chatRef.current) {
@@ -143,7 +162,23 @@ function App() {
 
   return (
     <div className="app-container">
-      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
+      {showSettings && (
+        <SettingsModal 
+          onClose={() => setShowSettings(false)} 
+          onSettingsUpdated={(updated) => {
+            if (updated.theme_accent) {
+              document.documentElement.setAttribute('data-theme', updated.theme_accent);
+            }
+            if (updated.default_temperature !== undefined) {
+              setTemperature(updated.default_temperature);
+            }
+            if (updated.default_model) {
+              setSelectedModel(updated.default_model);
+            }
+            fetchModels();
+          }}
+        />
+      )}
       
       <Sidebar 
         sessions={sessions} 

@@ -27,6 +27,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from bludai.core.settings_manager import settings_manager
+
 class ChatRequest(BaseModel):
     thread_id: str
     message: str
@@ -35,28 +37,34 @@ class ChatRequest(BaseModel):
     temperature: float = 0.5
 
 class SettingsRequest(BaseModel):
-    nine_router_api_key: str
+    nine_router_api_key: Optional[str] = None
+    nine_router_base_url: Optional[str] = None
+    default_model: Optional[str] = None
+    default_temperature: Optional[float] = None
+    max_tokens: Optional[int] = None
+    system_instructions: Optional[str] = None
+    execution_mode: Optional[str] = None
+    max_steps: Optional[int] = None
+    show_thinking: Optional[bool] = None
+    theme_accent: Optional[str] = None
+
+class TestConnectionRequest(BaseModel):
+    base_url: Optional[str] = None
+    api_key: Optional[str] = None
 
 @app.get("/api/settings")
 def get_settings():
-    return {
-        "nine_router_api_key": os.environ.get("NINE_ROUTER_API_KEY", "")
-    }
+    return settings_manager.get_settings()
 
 @app.post("/api/settings")
 def update_settings(req: SettingsRequest):
-    env_path = os.path.join(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")), ".env")
-    
-    # Update current process environment
-    os.environ["NINE_ROUTER_API_KEY"] = req.nine_router_api_key
-    os.environ["OPENAI_API_KEY"] = req.nine_router_api_key
-    
-    # Write to .env file
-    with open(env_path, "w") as f:
-        f.write(f'NINE_ROUTER_API_KEY="{req.nine_router_api_key}"\n')
-        f.write(f'OPENAI_API_KEY="{req.nine_router_api_key}"\n')
-        
-    return {"status": "success"}
+    data = req.dict(exclude_unset=True)
+    updated = settings_manager.update_settings(data)
+    return {"status": "success", "settings": updated}
+
+@app.post("/api/settings/test")
+def test_connection_endpoint(req: TestConnectionRequest):
+    return settings_manager.test_connection(base_url=req.base_url, api_key=req.api_key)
 
 @app.on_event("startup")
 def on_startup():
@@ -95,10 +103,10 @@ def shutdown():
 def get_models():
     import urllib.request
     import json
-    import os
     try:
-        api_key = os.environ.get("NINE_ROUTER_API_KEY") or os.environ.get("OPENAI_API_KEY") or ""
-        req = urllib.request.Request("http://localhost:20128/v1/models")
+        base_url = settings_manager.get_base_url().rstrip("/")
+        api_key = settings_manager.get_api_key()
+        req = urllib.request.Request(f"{base_url}/models")
         if api_key:
             req.add_header("Authorization", f"Bearer {api_key}")
             
@@ -106,7 +114,8 @@ def get_models():
             return json.loads(response.read().decode())
     except Exception as e:
         print(f"Error fetching models: {e}")
-        return {"data": [{"id": "meta-llama/llama-3-8b-instruct:free"}]}
+        default_m = settings_manager.get_settings().get("default_model", "meta-llama/llama-3-8b-instruct:free")
+        return {"data": [{"id": default_m}]}
 
 @app.get("/api/sessions/{thread_id}/history")
 def get_session_history(thread_id: str):

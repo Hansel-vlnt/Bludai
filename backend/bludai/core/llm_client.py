@@ -29,14 +29,15 @@ def check_9router_status(url=DEFAULT_9ROUTER_URL) -> bool:
     return False
 
 from bludai.core.models_manager import models_manager
+from bludai.core.settings_manager import settings_manager
 
 def get_llm_client(role: str = None, model_id: str = None, temperature: float = 0.0):
     """
-    Returns a ChatOpenAI instance configured to communicate with the local 9Router proxy.
-    If model_id is provided, it uses that exact model.
-    Else if a role is provided (e.g. 'Supervisor'), it fetches the assigned model.
+    Returns a ChatOpenAI instance configured to communicate with the local 9Router proxy
+    or any custom OpenAI-compatible endpoint configured in Settings.
     """
-    model_name = DEFAULT_MODEL
+    configured_default = settings_manager.get_settings().get("default_model") or DEFAULT_MODEL
+    model_name = configured_default
     if model_id:
         model_name = model_id
     elif role:
@@ -44,12 +45,14 @@ def get_llm_client(role: str = None, model_id: str = None, temperature: float = 
         if assigned_model:
             model_name = assigned_model
 
-    # 9Router uses standard api keys, or mock key if require_api_key is false
-    api_key = os.environ.get("NINE_ROUTER_API_KEY") or os.environ.get("OPENAI_API_KEY") or "dummy-9router-token"
+    api_key = settings_manager.get_api_key() or "dummy-9router-token"
+    base_url = settings_manager.get_base_url()
+    max_tokens = settings_manager.get_settings().get("max_tokens", 4096)
     
     return ChatOpenAI(
         model=model_name,
         openai_api_key=api_key,
-        openai_api_base=DEFAULT_9ROUTER_URL,
+        openai_api_base=base_url,
         temperature=temperature,
+        max_tokens=max_tokens,
     )
