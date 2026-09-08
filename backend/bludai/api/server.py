@@ -175,6 +175,25 @@ def chat(req: ChatRequest):
                     output_tokens += tokens.get("completion_tokens", 0)
         return {"input": input_tokens, "output": output_tokens, "total": input_tokens + output_tokens}
 
+    def format_chat_error(e: Exception) -> dict:
+        err_msg = str(e)
+        print(f"[Bludai Chat Error]: {err_msg}")
+        if "401" in err_msg or "invalid_api_key" in err_msg.lower():
+            reply = (
+                "❌ **Authentication Error (401 - Invalid API Key)**\n\n"
+                "The configured API key was rejected by the provider.\n\n"
+                "👉 Please click **Settings** (in the sidebar), verify your 9Router / OpenAI API key, and click **Save & Apply**."
+            )
+        elif "10061" in err_msg or "actively refused" in err_msg.lower() or "connecterror" in err_msg.lower():
+            reply = (
+                f"⚠️ **Connection Refused (`{settings_manager.get_base_url()}`)**\n\n"
+                "Could not connect to the model provider or local 9Router proxy.\n\n"
+                "👉 Please make sure 9Router is running (`9router start`) or check your Base URL in **Settings**."
+            )
+        else:
+            reply = f"⚠️ **Model Execution Error**:\n\n```\n{err_msg}\n```"
+        return {"reply": reply, "role": "assistant", "tokens": {"input": 0, "output": 0, "total": 0}}
+
     if req.mode == "basic":
         from bludai.core.graph_basic import basic_app
         inputs["basic_model"] = req.basic_model
@@ -189,7 +208,7 @@ def chat(req: ChatRequest):
                 return {"reply": last_msg.content, "role": "assistant", "tokens": tokens}
             return {"reply": "", "role": "assistant", "tokens": tokens}
         except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+            return format_chat_error(e)
     else:
         # Role mode
         from bludai.core.graph import app as compiled_app
@@ -212,4 +231,4 @@ def chat(req: ChatRequest):
                     return {"reply": msg.content, "role": "assistant", "tokens": tokens}
             return {"reply": "Task completed.", "role": "assistant", "tokens": tokens}
         except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+            return format_chat_error(e)

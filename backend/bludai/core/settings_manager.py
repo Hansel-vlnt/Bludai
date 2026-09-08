@@ -20,31 +20,45 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
     "theme_accent": "cyan"     # "cyan", "green", "amber", "purple"
 }
 
+from dotenv import load_dotenv
+
 class SettingsManager:
     def __init__(self):
+        # Load .env file first
+        if os.path.exists(ENV_FILE):
+            load_dotenv(ENV_FILE, override=True)
         self.settings: Dict[str, Any] = self._load_settings()
         self.sync_env()
 
     def _load_settings(self) -> Dict[str, Any]:
         settings = dict(DEFAULT_SETTINGS)
-        # Pull existing API key from environment if present
-        env_key = os.environ.get("NINE_ROUTER_API_KEY") or os.environ.get("OPENAI_API_KEY")
-        if env_key:
-            settings["nine_router_api_key"] = env_key
 
+        # Load from .bludai_settings.json if available (UI preferences only)
         if os.path.exists(SETTINGS_FILE):
             try:
                 with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
                     saved = json.load(f)
+                    # Never load API keys from JSON
+                    saved.pop("nine_router_api_key", None)
                     settings.update(saved)
             except Exception as e:
                 print(f"[SettingsManager] Failed to load settings from {SETTINGS_FILE}: {e}")
+
+        # API keys are strictly sourced from environment / .env
+        settings["nine_router_api_key"] = (
+            os.environ.get("NINE_ROUTER_API_KEY") 
+            or os.environ.get("OPENAI_API_KEY") 
+            or ""
+        )
+
         return settings
 
     def save_settings(self) -> bool:
         try:
+            # Strictly exclude sensitive secrets from JSON file (only save in .env)
+            safe_settings = {k: v for k, v in self.settings.items() if k != "nine_router_api_key"}
             with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
-                json.dump(self.settings, f, indent=2)
+                json.dump(safe_settings, f, indent=2)
             self.sync_env()
             return True
         except Exception as e:
@@ -53,9 +67,15 @@ class SettingsManager:
 
     def sync_env(self):
         """Synchronizes settings with os.environ and updates backend/.env file."""
-        api_key = self.settings.get("nine_router_api_key", "")
-        base_url = self.settings.get("nine_router_base_url", "http://localhost:20128/v1")
+        api_key = self.settings.get("nine_router_api_key", "").strip()
+        base_url = self.settings.get("nine_router_base_url", "http://localhost:20128/v1").strip()
         
+        # Read existing env if present to avoid wiping out valid keys
+        existing_env_key = os.environ.get("NINE_ROUTER_API_KEY") or ""
+        if not api_key and existing_env_key:
+            api_key = existing_env_key
+            self.settings["nine_router_api_key"] = api_key
+
         if api_key:
             os.environ["NINE_ROUTER_API_KEY"] = api_key
             os.environ["OPENAI_API_KEY"] = api_key

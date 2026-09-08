@@ -18,6 +18,16 @@ venv.bak/
 # Environment files
 .env
 .env.local
+.env.*
+
+# Bludai local configs & runtime settings
+.bludai*
+*.bludai*
+.bludai_settings.json
+.bludai_roles.json
+backend/.bludai*
+backend/*.bludai*
+*.json.bak
 
 # IDEs
 .vscode/
