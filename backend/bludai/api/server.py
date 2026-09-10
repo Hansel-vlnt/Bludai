@@ -15,6 +15,7 @@ load_dotenv(os.path.join(os.path.abspath(os.path.join(os.path.dirname(__file__),
 
 from bludai.core.session_manager import session_manager
 from bludai.core.memory import get_checkpointer
+from bludai.core.vector_store import vector_store
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, ToolMessage
 
 app = FastAPI(title="Bludai API")
@@ -85,6 +86,18 @@ def on_startup():
 @app.get("/api/sessions")
 def get_sessions(limit: int = 20):
     return session_manager.get_sessions(limit=limit)
+
+class VectorIndexRequest(BaseModel):
+    root_dir: Optional[str] = None
+
+@app.get("/api/vector/stats")
+def get_vector_stats():
+    return vector_store.get_stats()
+
+@app.post("/api/vector/index")
+def index_vector_codebase(req: Optional[VectorIndexRequest] = None):
+    root = req.root_dir if req and req.root_dir else None
+    return vector_store.index_codebase(root_dir=root)
 
 @app.post("/api/sessions/{thread_id}/clear")
 def clear_session(thread_id: str):

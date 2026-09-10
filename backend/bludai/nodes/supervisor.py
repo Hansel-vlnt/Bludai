@@ -33,23 +33,41 @@ def supervisor_node(state: AgentState) -> dict:
         results = store.search(("facts", "user"))
         if results:
             facts = "\n- ".join([item.value.get("fact", str(item.value)) for item in results])
+    from bludai.core.vector_store import vector_store
+
+    # Query Semantic Long-Term Memory (ChromaDB Vector Database)
+    semantic_memories = "None"
+    last_user_text = ""
+    for msg in reversed(state.get("messages", [])):
+        if getattr(msg, "type", "") == "human" or getattr(msg, "role", "") == "user":
+            last_user_text = str(msg.content)
+            break
+            
+    if last_user_text:
+        vector_hits = vector_store.search_memory(last_user_text, n_results=3)
+        if vector_hits:
+            semantic_memories = "\n- ".join(vector_hits)
+
     # Query custom instructions/rules from settings
     custom_rules = settings_manager.get_system_instructions()
     rules_section = f"\n[USER CUSTOM INSTRUCTIONS / PLATFORM RULES]:\n{custom_rules}\n" if custom_rules else ""
 
     system_prompt = f"""You are the Supervisor (Orchestrator) for the BLUDAI Multi-Agent System.
-Your job is to coordinate a Developer node (creates/modifies files) and an Executor node (runs terminal commands) to solve the user's request.
+Your job is to coordinate a Developer node (creates/modifies/searches files) and an Executor node (runs terminal commands) to solve the user's request.
 
 Operational Guidelines:
 1. Break down the user's request into a checklist of subtasks and track them in `checklist`.
 2. Inspect the current message history and tools output. Mark tasks as completed [x] or pending [ ].
 3. Decide the next worker node to call:
-   - 'Developer': for file operations (creating/modifying/reading files).
+   - 'Developer': for file operations and code research (searching, creating, modifying, reading files). Instruct Developer to use `semantic_code_search` when you need to locate existing components or logic.
    - 'Executor': for terminal command executions (compiling, testing, git commands, installing dependencies).
    - 'FINISH': when all tasks on the checklist are complete or when you can answer the user directly.
 4. Delegate instructions clearly to the worker. Do not try to write code yourself—instruct Developer to do it. Do not execute command strings yourself—instruct Executor to do it.
 
-[LONG-TERM MEMORY (Facts about User/Project)]:
+[SEMANTIC LONG-TERM MEMORY (ChromaDB)]:
+- {semantic_memories}
+
+[LONG-TERM FACTS (BaseStore)]:
 - {facts}
 
 {skills_prompt}

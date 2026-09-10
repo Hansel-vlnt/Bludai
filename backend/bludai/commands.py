@@ -239,3 +239,12 @@ def cmd_history(args, state_ctx):
             console.print(f"[bold green]Restored Session:[/] {session['title']} (Mode: {session['mode']})")
     
     return True
+
+@registry.register("index", "Index project codebase into ChromaDB vector store for semantic code search.")
+def cmd_index(args, state_ctx):
+    from bludai.core.vector_store import vector_store
+    target_path = args.strip() or None
+    console.print("[bold cyan]Scanning and generating vector embeddings with ChromaDB...[/]")
+    res = vector_store.index_codebase(target_path)
+    console.print(f"[bold green]Vector Indexing Complete:[/] Indexed [bold]{res.get('files', 0)}[/] files into [bold]{res.get('chunks', 0)}[/] semantic vector chunks.")
+    return True
