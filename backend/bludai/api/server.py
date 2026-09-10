@@ -54,12 +54,23 @@ class TestConnectionRequest(BaseModel):
 
 @app.get("/api/settings")
 def get_settings():
-    return settings_manager.get_settings()
+    settings = settings_manager.get_settings()
+    # API key is read strictly from backend/.env
+    settings["nine_router_api_key"] = settings_manager.get_api_key()
+    return settings
 
 @app.post("/api/settings")
 def update_settings(req: SettingsRequest):
+    # If API key is provided, store it strictly and solely in backend/.env
+    if req.nine_router_api_key is not None:
+        settings_manager.set_api_key(req.nine_router_api_key)
+
     data = req.dict(exclude_unset=True)
+    # Never pass API key to settings JSON
+    data.pop("nine_router_api_key", None)
+    
     updated = settings_manager.update_settings(data)
+    updated["nine_router_api_key"] = settings_manager.get_api_key()
     return {"status": "success", "settings": updated}
 
 @app.post("/api/settings/test")

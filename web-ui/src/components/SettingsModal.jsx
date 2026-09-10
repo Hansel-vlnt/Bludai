@@ -254,7 +254,7 @@ const SettingsModal = ({ onClose, onSettingsUpdated }) => {
                       {showKey ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
                   </div>
-                  <p className="setting-help">Encrypted into local backend environment and synchronized to .env.</p>
+                  <p className="setting-help">Saved strictly to backend/.env (Never saved to settings JSON or Git).</p>
                 </div>
 
                 {/* Connection Ping Box */}

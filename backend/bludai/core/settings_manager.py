@@ -8,7 +8,6 @@ SETTINGS_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__f
 ENV_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".env")
 
 DEFAULT_SETTINGS: Dict[str, Any] = {
-    "nine_router_api_key": "",
     "nine_router_base_url": "http://localhost:20128/v1",
     "default_model": "meta-llama/llama-3-8b-instruct:free",
     "default_temperature": 0.5,
@@ -24,7 +23,6 @@ from dotenv import load_dotenv
 
 class SettingsManager:
     def __init__(self):
-        # Load .env file first
         if os.path.exists(ENV_FILE):
             load_dotenv(ENV_FILE, override=True)
         self.settings: Dict[str, Any] = self._load_settings()
@@ -33,30 +31,27 @@ class SettingsManager:
     def _load_settings(self) -> Dict[str, Any]:
         settings = dict(DEFAULT_SETTINGS)
 
-        # Load from .bludai_settings.json if available (UI preferences only)
+        # Load from .bludai_settings.json if available (UI & model preferences only)
         if os.path.exists(SETTINGS_FILE):
             try:
                 with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
                     saved = json.load(f)
-                    # Never load API keys from JSON
+                    # Safety check: ensure no API keys are ever read from JSON
                     saved.pop("nine_router_api_key", None)
+                    saved.pop("api_key", None)
                     settings.update(saved)
             except Exception as e:
                 print(f"[SettingsManager] Failed to load settings from {SETTINGS_FILE}: {e}")
-
-        # API keys are strictly sourced from environment / .env
-        settings["nine_router_api_key"] = (
-            os.environ.get("NINE_ROUTER_API_KEY") 
-            or os.environ.get("OPENAI_API_KEY") 
-            or ""
-        )
 
         return settings
 
     def save_settings(self) -> bool:
         try:
-            # Strictly exclude sensitive secrets from JSON file (only save in .env)
-            safe_settings = {k: v for k, v in self.settings.items() if k != "nine_router_api_key"}
+            # Strictly ensure no secrets exist in the saved dictionary
+            safe_settings = {
+                k: v for k, v in self.settings.items() 
+                if not k.endswith("api_key") and k != "api_key"
+            }
             with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
                 json.dump(safe_settings, f, indent=2)
             self.sync_env()
@@ -66,43 +61,72 @@ class SettingsManager:
             return False
 
     def sync_env(self):
-        """Synchronizes settings with os.environ and updates backend/.env file."""
-        api_key = self.settings.get("nine_router_api_key", "").strip()
+        """Ensures base URL and non-secret env vars are synchronized without altering API keys."""
         base_url = self.settings.get("nine_router_base_url", "http://localhost:20128/v1").strip()
-        
-        # Read existing env if present to avoid wiping out valid keys
-        existing_env_key = os.environ.get("NINE_ROUTER_API_KEY") or ""
-        if not api_key and existing_env_key:
-            api_key = existing_env_key
-            self.settings["nine_router_api_key"] = api_key
-
-        if api_key:
-            os.environ["NINE_ROUTER_API_KEY"] = api_key
-            os.environ["OPENAI_API_KEY"] = api_key
         if base_url:
             os.environ["NINE_ROUTER_BASE_URL"] = base_url
 
-        # Persist to .env
-        try:
+        # Check if NINE_ROUTER_BASE_URL is in .env; if missing or changed, update it safely
+        if os.path.exists(ENV_FILE):
+            lines = []
+            found_url = False
+            with open(ENV_FILE, "r", encoding="utf-8") as f:
+                for line in f:
+                    if line.startswith("NINE_ROUTER_BASE_URL="):
+                        lines.append(f'NINE_ROUTER_BASE_URL="{base_url}"\n')
+                        found_url = True
+                    else:
+                        lines.append(line)
+            if not found_url:
+                lines.append(f'NINE_ROUTER_BASE_URL="{base_url}"\n')
             with open(ENV_FILE, "w", encoding="utf-8") as f:
-                f.write(f'NINE_ROUTER_API_KEY="{api_key}"\n')
-                f.write(f'OPENAI_API_KEY="{api_key}"\n')
-                f.write(f'NINE_ROUTER_BASE_URL="{base_url}"\n')
-        except Exception as e:
-            print(f"[SettingsManager] Failed to write .env: {e}")
+                f.writelines(lines)
 
     def get_settings(self) -> Dict[str, Any]:
         return dict(self.settings)
 
     def update_settings(self, updates: Dict[str, Any]) -> Dict[str, Any]:
         for k, v in updates.items():
-            if k in DEFAULT_SETTINGS:
+            if k in DEFAULT_SETTINGS and not k.endswith("api_key"):
                 self.settings[k] = v
         self.save_settings()
         return dict(self.settings)
 
     def get_api_key(self) -> str:
-        return self.settings.get("nine_router_api_key") or os.environ.get("NINE_ROUTER_API_KEY", "")
+        """Reads API key strictly from environment or backend/.env file."""
+        if os.path.exists(ENV_FILE):
+            load_dotenv(ENV_FILE, override=True)
+        return os.environ.get("NINE_ROUTER_API_KEY") or os.environ.get("OPENAI_API_KEY") or ""
+
+    def set_api_key(self, api_key: str):
+        """Writes API key strictly to backend/.env file and updates current process environment."""
+        api_key = api_key.strip()
+        os.environ["NINE_ROUTER_API_KEY"] = api_key
+        os.environ["OPENAI_API_KEY"] = api_key
+
+        lines = []
+        found_nine = False
+        found_openai = False
+
+        if os.path.exists(ENV_FILE):
+            with open(ENV_FILE, "r", encoding="utf-8") as f:
+                for line in f:
+                    if line.startswith("NINE_ROUTER_API_KEY="):
+                        lines.append(f'NINE_ROUTER_API_KEY="{api_key}"\n')
+                        found_nine = True
+                    elif line.startswith("OPENAI_API_KEY="):
+                        lines.append(f'OPENAI_API_KEY="{api_key}"\n')
+                        found_openai = True
+                    else:
+                        lines.append(line)
+
+        if not found_nine:
+            lines.append(f'NINE_ROUTER_API_KEY="{api_key}"\n')
+        if not found_openai:
+            lines.append(f'OPENAI_API_KEY="{api_key}"\n')
+
+        with open(ENV_FILE, "w", encoding="utf-8") as f:
+            f.writelines(lines)
 
     def get_base_url(self) -> str:
         return self.settings.get("nine_router_base_url") or os.environ.get("NINE_ROUTER_BASE_URL", "http://localhost:20128/v1")
