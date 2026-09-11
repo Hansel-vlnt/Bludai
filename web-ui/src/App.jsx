@@ -5,6 +5,9 @@ import Sidebar from './components/Sidebar';
 import ModelSelector from './components/ModelSelector';
 import TemperatureSlider from './components/TemperatureSlider';
 import SettingsModal from './components/SettingsModal';
+import ThinkingBlock from './components/ThinkingBlock';
+import ThinkingIndicator from './components/ThinkingIndicator';
+import { extractThinking } from './utils/thinkingParser';
 import './index.css';
 
 const API_BASE = 'http://localhost:8000/api';
@@ -15,6 +18,7 @@ function App() {
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [mode, setMode] = useState('role');
   const [showSettings, setShowSettings] = useState(false);
   const [selectedModel, setSelectedModel] = useState('meta-llama/llama-3-8b-instruct:free');
@@ -23,6 +27,7 @@ function App() {
     { id: 'meta-llama/llama-3-8b-instruct:free', name: 'Llama 3 8B (Free)', tag: 'Fast' }
   ]);
   const chatRef = useRef(null);
+  const timerRef = useRef(null);
   
   useEffect(() => {
     fetchSessions();
@@ -114,6 +119,13 @@ function App() {
     const currentInput = inputText;
     setInputText('');
     setIsTyping(true);
+    setElapsedSeconds(0);
+
+    const startTime = Date.now();
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => {
+      setElapsedSeconds((Date.now() - startTime) / 1000);
+    }, 100);
 
     try {
       const res = await fetch(`${API_BASE}/chat`, {
@@ -128,9 +140,13 @@ function App() {
         })
       });
       const data = await res.json();
+      const calcDuration = data.duration || parseFloat(((Date.now() - startTime) / 1000).toFixed(1));
+      
       setMessages(prev => [...prev, { 
         role: data.role || 'assistant', 
         content: data.reply,
+        thinking: data.thinking,
+        duration: calcDuration,
         tokens: data.tokens 
       }]);
       fetchSessions();
@@ -138,7 +154,12 @@ function App() {
       console.error("Chat error:", err);
       setMessages(prev => [...prev, { role: 'system', content: 'Connection error to backend.' }]);
     } finally {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
       setIsTyping(false);
+      setElapsedSeconds(0);
     }
   };
 
@@ -216,30 +237,42 @@ function App() {
             </div>
           )}
           
-          {messages.map((msg, i) => (
-            <div key={i} className={`message-wrapper ${msg.role === 'user' ? 'user' : 'ai'}`}>
-              <div className="message-sender">
-                {msg.role === 'user' ? <User size={14} /> : <Bot size={14} />}
-                {msg.role === 'user' ? 'You' : 'Bludai'}
+          {messages.map((msg, i) => {
+            const isAi = msg.role !== 'user';
+            const { thinking, cleanContent } = isAi 
+              ? extractThinking(msg.content, msg.thinking)
+              : { thinking: null, cleanContent: msg.content };
+
+            return (
+              <div key={i} className={`message-wrapper ${msg.role === 'user' ? 'user' : 'ai'}`}>
+                <div className="message-sender">
+                  {msg.role === 'user' ? <User size={14} /> : <Bot size={14} />}
+                  {msg.role === 'user' ? 'You' : 'Bludai'}
+                </div>
+                <div className="message-bubble">
+                  {thinking && (
+                    <ThinkingBlock thinking={thinking} duration={msg.duration} />
+                  )}
+                  {cleanContent && (
+                    <div className="markdown-body">
+                      <ReactMarkdown>{cleanContent}</ReactMarkdown>
+                    </div>
+                  )}
+                  {msg.tokens && msg.tokens.total > 0 && (
+                    <div className="token-tracker">
+                      <span className="token-main"><Cpu size={12}/> Tokens: {msg.tokens.total.toLocaleString()}</span>
+                      <span className="token-details">[In: {msg.tokens.input.toLocaleString()} | Out: {msg.tokens.output.toLocaleString()}]</span>
+                    </div>
+                  )}
+                </div>
               </div>
-              <div className="message-bubble">
-                <ReactMarkdown>{msg.content}</ReactMarkdown>
-                {msg.tokens && msg.tokens.total > 0 && (
-                  <div className="token-tracker">
-                    <span className="token-main"><Cpu size={12}/> Tokens: {msg.tokens.total.toLocaleString()}</span>
-                    <span className="token-details">[In: {msg.tokens.input.toLocaleString()} | Out: {msg.tokens.output.toLocaleString()}]</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
+            );
+          })}
           
           {isTyping && (
             <div className="message-wrapper ai">
               <div className="message-sender"><Bot size={14} /> Bludai</div>
-              <div className="message-bubble" style={{opacity: 0.7}}>
-                Thinking...
-              </div>
+              <ThinkingIndicator elapsedSeconds={elapsedSeconds} mode={mode} />
             </div>
           )}
         </div>

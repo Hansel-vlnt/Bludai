@@ -166,6 +166,9 @@ def get_session_history(thread_id: str):
 
 @app.post("/api/chat")
 def chat(req: ChatRequest):
+    import time
+    start_time = time.time()
+
     # Auto-save session
     existing = session_manager.get_session(req.thread_id)
     if not existing:
@@ -226,11 +229,22 @@ def chat(req: ChatRequest):
             result = basic_app.invoke(inputs, config=config)
             final_messages = result.get("messages", [])
             tokens = calculate_tokens(final_messages, initial_msg_count)
+            duration = round(time.time() - start_time, 2)
             
             if final_messages:
                 last_msg = final_messages[-1]
-                return {"reply": last_msg.content, "role": "assistant", "tokens": tokens}
-            return {"reply": "", "role": "assistant", "tokens": tokens}
+                thinking = (
+                    last_msg.additional_kwargs.get("reasoning_content") or
+                    (last_msg.response_metadata.get("message", {}).get("reasoning_content") if hasattr(last_msg, "response_metadata") else None)
+                )
+                return {
+                    "reply": last_msg.content, 
+                    "role": "assistant", 
+                    "thinking": thinking,
+                    "duration": duration,
+                    "tokens": tokens
+                }
+            return {"reply": "", "role": "assistant", "duration": duration, "tokens": tokens}
         except Exception as e:
             return format_chat_error(e)
     else:
@@ -248,11 +262,37 @@ def chat(req: ChatRequest):
             result = compiled_app.invoke(inputs, config=config)
             final_messages = result.get("messages", [])
             tokens = calculate_tokens(final_messages, initial_msg_count)
+            duration = round(time.time() - start_time, 2)
+
+            # Build intermediate thought trace from multi-agent turns
+            intermediate_trace = []
+            turn_messages = final_messages[initial_msg_count:]
+            for msg in turn_messages[:-1]:
+                if isinstance(msg, ToolMessage):
+                    tool_content = str(msg.content)[:250] + ("..." if len(str(msg.content)) > 250 else "")
+                    intermediate_trace.append(f"🔧 **Tool executed ({msg.name})**:\n```\n{tool_content}\n```")
+                elif isinstance(msg, AIMessage) and msg.content:
+                    # Intermediate supervisor or worker reasoning
+                    intermediate_trace.append(f"🧠 **Agent Thought / Subtask**:\n{msg.content.strip()}")
+
+            thinking_trace = "\n\n".join(intermediate_trace) if intermediate_trace else None
             
-            # In role mode, we return the last AI message
+            # In role mode, return the last AI message as reply
             for msg in reversed(final_messages):
                 if isinstance(msg, AIMessage) and msg.content:
-                    return {"reply": msg.content, "role": "assistant", "tokens": tokens}
-            return {"reply": "Task completed.", "role": "assistant", "tokens": tokens}
+                    return {
+                        "reply": msg.content, 
+                        "role": "assistant", 
+                        "thinking": thinking_trace,
+                        "duration": duration,
+                        "tokens": tokens
+                    }
+            return {
+                "reply": "Task completed.", 
+                "role": "assistant", 
+                "thinking": thinking_trace,
+                "duration": duration,
+                "tokens": tokens
+            }
         except Exception as e:
             return format_chat_error(e)

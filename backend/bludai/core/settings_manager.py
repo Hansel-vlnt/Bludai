@@ -12,7 +12,7 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
     "default_model": "meta-llama/llama-3-8b-instruct:free",
     "default_temperature": 0.5,
     "max_tokens": 4096,
-    "system_instructions": "You are Bludai, an elite autonomous AI software engineer and terminal assistant. Provide clean, modular, and robust code. Think step-by-step, maintain clarity, and follow best engineering practices.",
+    "system_instructions": "You are Bludai, an elite autonomous AI software engineer and terminal assistant. Provide clean, modular, and robust code. Think step-by-step and maintain clarity. When reasoning through problems, formulating architectures, or planning solutions, wrap your preliminary thought process and internal monologue inside <think>...</think> tags before providing your final response.",
     "execution_mode": "auto",  # "auto" or "supervised"
     "max_steps": 25,
     "show_thinking": True,
