@@ -31,6 +31,27 @@ const SettingsModal = ({ onClose, onSettingsUpdated }) => {
   const [saveStatus, setSaveStatus] = useState('');
   const [testingConnection, setTestingConnection] = useState(false);
   const [testResult, setTestResult] = useState(null);
+  const [modelsList, setModelsList] = useState([]);
+  const [roleAssignments, setRoleAssignments] = useState({});
+
+  const fetchModelsAndRoles = async () => {
+    try {
+      const [modelsRes, rolesRes] = await Promise.all([
+        fetch(`${API_BASE}/models`),
+        fetch(`${API_BASE}/roles`)
+      ]);
+      const modelsData = await modelsRes.json();
+      if (modelsData && modelsData.data) {
+        setModelsList(modelsData.data);
+      }
+      const rolesData = await rolesRes.json();
+      if (rolesData) {
+        setRoleAssignments(rolesData);
+      }
+    } catch (err) {
+      console.error("Failed to fetch models/roles in settings", err);
+    }
+  };
 
   useEffect(() => {
     fetch(`${API_BASE}/settings`)
@@ -48,6 +69,8 @@ const SettingsModal = ({ onClose, onSettingsUpdated }) => {
         if (data.theme_accent) setThemeAccent(data.theme_accent);
       })
       .catch(err => console.error("Failed to fetch settings", err));
+
+    fetchModelsAndRoles();
   }, []);
 
   const handleTestConnection = async () => {
@@ -61,6 +84,9 @@ const SettingsModal = ({ onClose, onSettingsUpdated }) => {
       });
       const data = await res.json();
       setTestResult(data);
+      if (data.status === 'success') {
+        fetchModelsAndRoles();
+      }
     } catch (err) {
       setTestResult({ status: 'error', message: 'Backend unreachable or request timed out.' });
     } finally {
@@ -91,6 +117,19 @@ const SettingsModal = ({ onClose, onSettingsUpdated }) => {
         body: JSON.stringify(payload)
       });
       
+      // Save role assignments if any exist
+      for (const [role, modelName] of Object.entries(roleAssignments)) {
+        try {
+          await fetch(`${API_BASE}/roles`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ role, model_name: modelName })
+          });
+        } catch (e) {
+          console.error(`Failed to update role ${role}`, e);
+        }
+      }
+
       if (res.ok) {
         setSaveStatus('Settings committed successfully!');
         if (onSettingsUpdated) {
@@ -212,6 +251,38 @@ const SettingsModal = ({ onClose, onSettingsUpdated }) => {
                     />
                   </div>
                 </div>
+
+                <div className="setting-group" style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                  <label className="setting-label">
+                    <span>Multi-Agent Role Model Specialization</span>
+                    <span className="badge">Active Models</span>
+                  </label>
+                  <p className="setting-help" style={{ marginBottom: '12px' }}>
+                    Optionally assign specialized 9Router models to individual multi-agent nodes.
+                  </p>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
+                    {['Supervisor', 'Developer', 'Executor', 'Extractor'].map(role => (
+                      <div key={role} style={{ background: 'rgba(0,0,0,0.25)', padding: '10px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                        <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--accent-color)', marginBottom: '6px' }}>
+                          {role} Node
+                        </div>
+                        <select
+                          value={roleAssignments[role] || defaultModel}
+                          onChange={(e) => setRoleAssignments(prev => ({ ...prev, [role]: e.target.value }))}
+                          className="terminal-select"
+                          style={{ fontSize: '0.75rem', padding: '6px' }}
+                        >
+                          <option value={defaultModel}>Default ({defaultModel.split('/').pop()})</option>
+                          {modelsList.map(m => (
+                            <option key={m.id} value={m.id}>
+                              {m.name || m.id.split('/').pop()} ({m.tag || 'Fast'})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
 
@@ -297,15 +368,37 @@ const SettingsModal = ({ onClose, onSettingsUpdated }) => {
                 </div>
 
                 <div className="setting-group">
-                  <label className="setting-label">Default Model Identifier</label>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <label className="setting-label" style={{ margin: 0 }}>Default Model Identifier</label>
+                    <span className="badge" style={{ fontSize: '0.7rem' }}>
+                      {modelsList.length > 0 ? `${modelsList.length} Models from 9Router` : '9Router offline'}
+                    </span>
+                  </div>
+                  {modelsList.length > 0 && (
+                    <select
+                      value={defaultModel}
+                      onChange={(e) => setDefaultModel(e.target.value)}
+                      className="terminal-select"
+                      style={{ marginBottom: '8px' }}
+                    >
+                      {modelsList.map(m => (
+                        <option key={m.id} value={m.id}>
+                          {m.id} ({m.tag || 'Fast'})
+                        </option>
+                      ))}
+                      {!modelsList.find(m => m.id === defaultModel) && defaultModel && (
+                        <option value={defaultModel}>{defaultModel} (Custom)</option>
+                      )}
+                    </select>
+                  )}
                   <input
                     type="text"
                     value={defaultModel}
                     onChange={(e) => setDefaultModel(e.target.value)}
-                    placeholder="meta-llama/llama-3-8b-instruct:free"
+                    placeholder="ag/gemini-3.8-flash"
                     className="terminal-input"
                   />
-                  <p className="setting-help">Fallback model used when starting new sessions or when no role model is mapped.</p>
+                  <p className="setting-help">Active fallback model used when starting new sessions or when no role model is mapped.</p>
                 </div>
 
                 <div className="setting-group">

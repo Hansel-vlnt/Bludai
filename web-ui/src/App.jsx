@@ -21,18 +21,20 @@ function App() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [mode, setMode] = useState('role');
   const [showSettings, setShowSettings] = useState(false);
-  const [selectedModel, setSelectedModel] = useState('meta-llama/llama-3-8b-instruct:free');
+  const [selectedModel, setSelectedModel] = useState('');
   const [temperature, setTemperature] = useState(0.5);
-  const [availableModels, setAvailableModels] = useState([
-    { id: 'meta-llama/llama-3-8b-instruct:free', name: 'Llama 3 8B (Free)', tag: 'Fast' }
-  ]);
+  const [availableModels, setAvailableModels] = useState([]);
+  const [isRefreshingModels, setIsRefreshingModels] = useState(false);
   const chatRef = useRef(null);
   const timerRef = useRef(null);
   
   useEffect(() => {
-    fetchSessions();
-    fetchModels();
-    fetchSettings();
+    const init = async () => {
+      await fetchSettings();
+      await fetchModels();
+      fetchSessions();
+    };
+    init();
   }, []);
 
   const fetchSettings = async () => {
@@ -59,23 +61,24 @@ function App() {
     }
   }, [messages, isTyping]);
 
-  const fetchModels = async () => {
+  const fetchModels = async (force = false) => {
+    setIsRefreshingModels(true);
     try {
-      const res = await fetch(`${API_BASE}/models`);
+      const res = await fetch(`${API_BASE}/models${force ? '?refresh=true' : ''}`);
       const data = await res.json();
-      if (data && data.data) {
-        const mappedModels = data.data.map(m => ({
-          id: m.id,
-          name: m.id.split('/').pop(),
-          tag: (m.id.includes('pro') || m.id.includes('opus') || m.id.includes('high')) ? 'High' : 'Fast'
-        }));
-        setAvailableModels(mappedModels);
-        if (mappedModels.length > 0 && !mappedModels.find(m => m.id === selectedModel)) {
-          setSelectedModel(mappedModels[0].id);
-        }
+      if (data && data.data && data.data.length > 0) {
+        setAvailableModels(data.data);
+        setSelectedModel(prev => {
+          if (prev && data.data.find(m => m.id === prev)) {
+            return prev;
+          }
+          return data.active_model || data.data[0].id;
+        });
       }
     } catch (err) {
       console.error("Failed to fetch models", err);
+    } finally {
+      setIsRefreshingModels(false);
     }
   };
 
@@ -226,6 +229,35 @@ function App() {
               Basic Mode
             </button>
           </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div 
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                fontSize: '0.75rem',
+                color: 'var(--text-secondary)',
+                background: 'rgba(0,0,0,0.3)',
+                padding: '4px 10px',
+                border: '1px solid var(--panel-border)',
+                borderRadius: '0'
+              }}
+              title={availableModels.length > 0 ? `${availableModels.length} models loaded via 9Router proxy` : "9Router offline or unreachable"}
+            >
+              <span 
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  background: availableModels.length > 0 ? '#10b981' : '#f59e0b',
+                  boxShadow: availableModels.length > 0 ? '0 0 8px #10b981' : 'none',
+                  display: 'inline-block'
+                }} 
+              />
+              <span>9Router: {availableModels.length > 0 ? `${availableModels.length} Models` : 'Offline'}</span>
+            </div>
+          </div>
         </div>
 
         <div className="chat-container" ref={chatRef}>
@@ -278,14 +310,15 @@ function App() {
         </div>
 
         <div className="input-area">
-          <div className="controls-row" style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-            {mode === 'basic' && (
-              <ModelSelector 
-                selectedModel={selectedModel}
-                setSelectedModel={setSelectedModel}
-                availableModels={availableModels}
-              />
-            )}
+          <div className="controls-row" style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <ModelSelector 
+              selectedModel={selectedModel}
+              setSelectedModel={setSelectedModel}
+              availableModels={availableModels}
+              label={mode === 'role' ? 'Agent Model' : 'Direct Model'}
+              onRefresh={() => fetchModels(true)}
+              isRefreshing={isRefreshingModels}
+            />
             <TemperatureSlider temperature={temperature} setTemperature={setTemperature} />
           </div>
           

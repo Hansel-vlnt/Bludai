@@ -29,13 +29,18 @@ app.add_middleware(
 )
 
 from bludai.core.settings_manager import settings_manager
+from bludai.core.models_manager import models_manager
 
 class ChatRequest(BaseModel):
     thread_id: str
     message: str
     mode: str = "role"
-    basic_model: str = "meta-llama/llama-3-8b-instruct:free"
+    basic_model: Optional[str] = None
     temperature: float = 0.5
+
+class RoleAssignmentRequest(BaseModel):
+    role: str
+    model_name: str
 
 class SettingsRequest(BaseModel):
     nine_router_api_key: Optional[str] = None
@@ -124,22 +129,61 @@ def shutdown():
     return {"status": "shutting down"}
 
 @app.get("/api/models")
-def get_models():
-    import urllib.request
-    import json
-    try:
-        base_url = settings_manager.get_base_url().rstrip("/")
-        api_key = settings_manager.get_api_key()
-        req = urllib.request.Request(f"{base_url}/models")
-        if api_key:
-            req.add_header("Authorization", f"Bearer {api_key}")
+def get_models(refresh: bool = False):
+    """Returns available models from 9Router or configured OpenAI proxy with formatted metadata."""
+    model_ids = models_manager.get_available_models(force_refresh=refresh)
+    active_default = models_manager.get_best_default_model()
+    
+    if not model_ids and active_default:
+        model_ids = [active_default]
+        
+    formatted = []
+    for mid in model_ids:
+        parts = mid.split("/")
+        display_name = parts[-1]
+        provider = parts[0] if len(parts) > 1 else "local"
+        
+        tag = "Fast"
+        low_mid = mid.lower()
+        if any(w in low_mid for w in ["pro", "opus", "high", "ultra", "thinking"]):
+            tag = "High"
+        elif any(w in low_mid for w in ["flash", "mini", "lightning", "light", "small"]):
+            tag = "Fast"
             
-        with urllib.request.urlopen(req, timeout=3) as response:
-            return json.loads(response.read().decode())
-    except Exception as e:
-        print(f"Error fetching models: {e}")
-        default_m = settings_manager.get_settings().get("default_model", "meta-llama/llama-3-8b-instruct:free")
-        return {"data": [{"id": default_m}]}
+        formatted.append({
+            "id": mid,
+            "name": display_name,
+            "provider": provider,
+            "tag": tag,
+            "is_default": (mid == active_default)
+        })
+        
+    return {
+        "data": formatted,
+        "active_model": active_default,
+        "roles": models_manager.get_all_roles(),
+        "total": len(formatted)
+    }
+
+@app.get("/api/roles")
+def get_roles():
+    """Returns the current model assignments for agent roles."""
+    core_roles = ["Supervisor", "Developer", "Executor", "Extractor"]
+    current_roles = models_manager.get_all_roles()
+    default_model = models_manager.get_best_default_model()
+    result = {}
+    for r in core_roles:
+        result[r] = current_roles.get(r, default_model)
+    for k, v in current_roles.items():
+        if k not in result:
+            result[k] = v
+    return result
+
+@app.post("/api/roles")
+def set_role_model(req: RoleAssignmentRequest):
+    """Sets a specific model for an agent role."""
+    models_manager.set_model_for_role(req.role, req.model_name)
+    return {"status": "success", "role": req.role, "model": req.model_name}
 
 @app.get("/api/sessions/{thread_id}/history")
 def get_session_history(thread_id: str):
@@ -217,13 +261,19 @@ def chat(req: ChatRequest):
                 "Could not connect to the model provider or local 9Router proxy.\n\n"
                 "👉 Please make sure 9Router is running (`9router start`) or check your Base URL in **Settings**."
             )
+        elif "404" in err_msg or "model_not_found" in err_msg.lower():
+            reply = (
+                "⚠️ **Model Not Found (404)**\n\n"
+                "The requested model is either unavailable or has no active provider credentials in 9Router.\n\n"
+                "👉 Please choose one of the available models from the dropdown or update your Default Model in **Settings**."
+            )
         else:
             reply = f"⚠️ **Model Execution Error**:\n\n```\n{err_msg}\n```"
         return {"reply": reply, "role": "assistant", "tokens": {"input": 0, "output": 0, "total": 0}}
 
     if req.mode == "basic":
         from bludai.core.graph_basic import basic_app
-        inputs["basic_model"] = req.basic_model
+        inputs["basic_model"] = req.basic_model or models_manager.get_best_default_model()
         
         try:
             result = basic_app.invoke(inputs, config=config)

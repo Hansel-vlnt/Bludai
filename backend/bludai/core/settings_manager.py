@@ -9,7 +9,7 @@ ENV_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__
 
 DEFAULT_SETTINGS: Dict[str, Any] = {
     "nine_router_base_url": "http://localhost:20128/v1",
-    "default_model": "meta-llama/llama-3-8b-instruct:free",
+    "default_model": "ag/gemini-3.8-flash",
     "default_temperature": 0.5,
     "max_tokens": 4096,
     "system_instructions": "You are Bludai, an elite autonomous AI software engineer and terminal assistant. Provide clean, modular, and robust code. Think step-by-step and maintain clarity. When reasoning through problems, formulating architectures, or planning solutions, wrap your preliminary thought process and internal monologue inside <think>...</think> tags before providing your final response.",

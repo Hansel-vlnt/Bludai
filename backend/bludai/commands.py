@@ -119,43 +119,49 @@ def cmd_save_skill(args, state_ctx):
         console.print(f"[bold red]Exception saving skill:[/] {e}")
     return True
 
-@registry.register("models", "List or set connected models. Usage: /models [set <Role> <ModelName>]")
+@registry.register("models", "List or set connected models. Usage: /models [refresh | set <Role|default> <ModelName>]")
 def cmd_models(args, state_ctx):
     from bludai.core.models_manager import models_manager
+    from bludai.core.settings_manager import settings_manager
     
     parts = args.strip().split()
-    if not parts:
-        # Just list models and roles
+    if not parts or parts[0] == "refresh":
+        force = (len(parts) > 0 and parts[0] == "refresh")
         console.print("\n[bold cyan]=== Connected Models (from 9Router) ===[/]")
-        available = models_manager.get_available_models()
+        available = models_manager.get_available_models(force_refresh=force)
+        default_model = models_manager.get_best_default_model()
         if available:
             for m in available:
-                console.print(f"  - [green]{m}[/]")
+                is_active = (m == default_model)
+                suffix = " [bold green](Active Default)[/]" if is_active else ""
+                console.print(f"  - [green]{m}[/]{suffix}")
         else:
             console.print("  [yellow]No models found or 9Router not reachable.[/]")
             
         console.print("\n[bold cyan]=== Current Role Assignments ===[/]")
         roles = models_manager.get_all_roles()
-        
-        # We ensure core roles are always displayed, plus any custom ones created
         core_roles = ["Supervisor", "Developer", "Executor", "Extractor"]
         all_roles_to_display = set(core_roles + list(roles.keys()))
         
         for r in sorted(all_roles_to_display):
-            assigned = roles.get(r, "[dim]Default[/]")
+            assigned = roles.get(r, f"[dim]{default_model}[/]")
             console.print(f"  [bold yellow]{r:<20}[/] {assigned}")
         console.print()
         return True
         
     if parts[0] == "set" and len(parts) >= 3:
-        role = parts[1]
+        target = parts[1]
         model_name = parts[2]
-            
-        models_manager.set_model_for_role(role, model_name)
-        console.print(f"[bold green]Success:[/] Assigned '{model_name}' to role '{role}'.")
+        
+        if target.lower() == "default":
+            settings_manager.update_settings({"default_model": model_name})
+            console.print(f"[bold green]Success:[/] Default model updated to '{model_name}'.")
+        else:
+            models_manager.set_model_for_role(target, model_name)
+            console.print(f"[bold green]Success:[/] Assigned '{model_name}' to role '{target}'.")
         return True
         
-    console.print("[bold red]Usage:[/] /models [set <Role> <ModelName>]")
+    console.print("[bold red]Usage:[/] /models [refresh | set <Role|default> <ModelName>]")
     return True
 
 @registry.register("ask", "Ask a specific role directly (bypasses agent workflow). Usage: /ask <Role> <Message>")
