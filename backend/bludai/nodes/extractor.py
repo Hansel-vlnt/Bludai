@@ -27,7 +27,8 @@ def extract_and_save_skill(skill_name: str, state_ctx) -> tuple[bool, str]:
     if not messages_list:
         return False, "No conversation history found to extract a skill from."
 
-    llm = get_llm_client(role="Extractor", temperature=state.get("temperature", 0.0))
+    temp = getattr(state_ctx, "temperature", 0.0) if not isinstance(state_ctx, dict) else state_ctx.get("temperature", 0.0)
+    llm = get_llm_client(role="Extractor", temperature=temp)
     
     # Format messages for the extractor LLM
     history_str = ""
