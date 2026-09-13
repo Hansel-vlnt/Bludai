@@ -1,7 +1,7 @@
 import React from 'react';
 import { Cpu, Plus, Power, Settings } from 'lucide-react';
 
-const Sidebar = ({ sessions, currentThread, handleNewChat, loadSession, handleExit, setShowSettings }) => {
+const Sidebar = ({ sessions, currentThread, handleNewChat, loadSession, handleExit, setShowSettings, setShowWorkplace }) => {
   return (
     <div className="sidebar">
       <div className="sidebar-header">
@@ -31,12 +31,28 @@ const Sidebar = ({ sessions, currentThread, handleNewChat, loadSession, handleEx
       
       <div style={{ padding: '16px', borderTop: '1px solid var(--panel-border)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
         <button 
+          onClick={() => setShowWorkplace(true)}
+          style={{
+            width: '100%', padding: '10px', background: 'rgba(0, 229, 255, 0.08)', 
+            color: 'var(--text-primary)', border: '1px solid rgba(0, 229, 255, 0.3)', 
+            borderRadius: '8px', cursor: 'pointer', display: 'flex', 
+            alignItems: 'center', justifyContent: 'center', gap: '8px',
+            fontWeight: 600, fontSize: '0.88rem',
+            transition: 'all 0.2s ease'
+          }}
+          onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(0, 229, 255, 0.18)'; }}
+          onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(0, 229, 255, 0.08)'; }}
+        >
+          ⚡ Agent Workplace
+        </button>
+        <button 
           onClick={() => setShowSettings(true)}
           style={{
             width: '100%', padding: '10px', background: 'transparent', 
             color: 'var(--text-secondary)', border: '1px solid var(--panel-border)', 
-            borderRadius: 0, cursor: 'pointer', display: 'flex', 
+            borderRadius: '8px', cursor: 'pointer', display: 'flex', 
             alignItems: 'center', justifyContent: 'center', gap: '8px',
+            fontSize: '0.88rem',
             transition: 'all 0.2s ease'
           }}
           onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)'; }}

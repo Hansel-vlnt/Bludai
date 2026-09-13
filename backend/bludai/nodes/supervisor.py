@@ -9,12 +9,14 @@ from bludai.core.settings_manager import settings_manager
 from bludai.core.state import AgentState
 from bludai.core.memory import get_store
 
+from bludai.core.agent_manager import agent_manager
+
 class SupervisorResponse(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     next_node: str = Field(
         default="FINISH",
-        description="The next worker to execute. Must be 'Developer', 'Executor', or 'FINISH'."
+        description="The next worker to execute. Must be one of the available specialist names, or 'FINISH'."
     )
     updated_checklist: str = Field(
         default="",
@@ -29,15 +31,14 @@ class SupervisorResponse(BaseModel):
         description="Internal reasoning or thought process before delegating or answering."
     )
 
-def parse_supervisor_response(raw_text: str) -> SupervisorResponse:
+def parse_supervisor_response(
+    raw_text: str, 
+    enabled_agents: Optional[list] = None, 
+    default_thought: Optional[str] = None
+) -> SupervisorResponse:
     """
     Robustly parses model output into a valid SupervisorResponse.
-    Gracefully handles:
-    - Markdown code fences (```json ... ``` or ``` ... ```)
-    - Preamble/postamble commentary
-    - Field name variations (checklist vs updated_checklist, message/reply vs instruction)
-    - Thought/reasoning fields
-    - Conversational plain text (auto-routes to FINISH without crashing)
+    Dynamically validates next_node against the active workplace agent roster.
     """
     cleaned = raw_text.strip()
     
@@ -61,15 +62,33 @@ def parse_supervisor_response(raw_text: str) -> SupervisorResponse:
     try:
         data = json.loads(candidate)
         if isinstance(data, dict):
-            # Normalize next_node
+            # Normalize next_node dynamically
             raw_node = str(data.get("next_node") or data.get("next") or data.get("node") or data.get("action") or "FINISH").strip()
             low_node = raw_node.lower()
-            if "dev" in low_node:
-                next_node = "Developer"
-            elif "exec" in low_node:
-                next_node = "Executor"
-            else:
+            
+            next_node = "FINISH"
+            if "finish" in low_node or "done" in low_node or not raw_node:
                 next_node = "FINISH"
+            elif enabled_agents:
+                # 1. Exact or case-insensitive match on name or ID
+                for a in enabled_agents:
+                    if a.get("name", "").lower() == low_node or a.get("id", "").lower() == low_node:
+                        next_node = a.get("name")
+                        break
+                # 2. Substring match
+                if next_node == "FINISH" and "finish" not in low_node:
+                    for a in enabled_agents:
+                        aname = a.get("name", "").lower()
+                        if aname in low_node or low_node in aname:
+                            next_node = a.get("name")
+                            break
+            else:
+                if "dev" in low_node:
+                    next_node = "Developer"
+                elif "exec" in low_node:
+                    next_node = "Executor"
+                else:
+                    next_node = "FINISH"
                 
             # Normalize checklist
             raw_checklist = data.get("updated_checklist") or data.get("checklist") or data.get("tasks") or ""
@@ -87,7 +106,7 @@ def parse_supervisor_response(raw_text: str) -> SupervisorResponse:
                 data.get("content") or 
                 ""
             )
-            thought = data.get("thought") or extracted_thought
+            thought = data.get("thought") or extracted_thought or default_thought
             if not raw_instruction and next_node == "FINISH":
                 raw_instruction = thought or cleaned_no_think
                 
@@ -105,7 +124,7 @@ def parse_supervisor_response(raw_text: str) -> SupervisorResponse:
         next_node="FINISH",
         updated_checklist="",
         instruction=cleaned_no_think or cleaned,
-        thought=extracted_thought
+        thought=extracted_thought or default_thought
     )
 
 def supervisor_node(state: AgentState) -> dict:
@@ -113,6 +132,21 @@ def supervisor_node(state: AgentState) -> dict:
     # Get 9Router client for this specific role
     llm = get_llm_client(role="Supervisor", temperature=state.get("temperature", 0.0))
     
+    # Query active workplace agents
+    enabled_agents = agent_manager.get_enabled_agents()
+    roster_lines = []
+    agent_options = []
+    for a in enabled_agents:
+        a_name = a.get("name", "Worker")
+        agent_options.append(f'"{a_name}"')
+        a_title = a.get("title", "")
+        a_desc = a.get("description", "")
+        a_tools = ", ".join(a.get("tools", [])) or "No tools"
+        roster_lines.append(f"- '{a_name}' ({a_title}): {a_desc} [Tools: {a_tools}]")
+    
+    roster_section = "\n".join(roster_lines) if roster_lines else "- None (Answer directly)"
+    options_str = f"{' | '.join(agent_options)} | \"FINISH\"" if agent_options else "\"FINISH\""
+
     # Inject loaded skills playbooks if any
     skills_prompt = skills_manager.get_skill_system_prompt_addition()
     
@@ -142,25 +176,27 @@ def supervisor_node(state: AgentState) -> dict:
     custom_rules = settings_manager.get_system_instructions()
     rules_section = f"\n[USER CUSTOM INSTRUCTIONS / PLATFORM RULES]:\n{custom_rules}\n" if custom_rules else ""
 
-    system_prompt = f"""You are the Supervisor (Orchestrator) for the BLUDAI Multi-Agent System.
-Your job is to coordinate a Developer node (creates/modifies/searches files) and an Executor node (runs terminal commands) to solve the user's request.
+    system_prompt = f"""You are the Supervisor (Orchestrator) for the BLUDAI Multi-Agent Workplace.
+Your job is to coordinate the active specialist agents in the workplace to fulfill the user's request.
+
+Available Specialists in this Workplace:
+{roster_section}
 
 Operational Guidelines:
 1. Break down the user's request into a checklist of subtasks and track them in `checklist`.
 2. Inspect the current message history and tools output. Mark tasks as completed [x] or pending [ ].
-3. Decide the next worker node to call:
-   - 'Developer': for file operations and code research (searching, creating, modifying, reading files). Instruct Developer to use `semantic_code_search` when you need to locate existing components or logic.
-   - 'Executor': for terminal command executions (compiling, testing, git commands, installing dependencies).
-   - 'FINISH': when all tasks on the checklist are complete or when you can answer the user directly.
-4. Delegate instructions clearly to the worker. Do not try to write code yourself—instruct Developer to do it. Do not execute command strings yourself—instruct Executor to do it.
+3. Decide the next specialist node to call based on their role and tools:
+   - Select one of the available specialists: {options_str}.
+   - Choose 'FINISH' when all tasks on the checklist are complete or when you can answer the user directly.
+4. Delegate instructions clearly to the selected specialist. Do not try to perform specialized worker tasks yourself—delegate to the appropriate agent.
 
 RESPONSE FORMAT:
 You MUST respond with a JSON object conforming to this schema:
 {{
   "thought": "Your internal analysis and reasoning on current state and next step",
   "updated_checklist": "The updated checklist string (e.g. [x] Step 1\\n[ ] Step 2)",
-  "next_node": "Developer" | "Executor" | "FINISH",
-  "instruction": "Detailed instruction for worker, OR final user response if next_node is FINISH"
+  "next_node": {options_str},
+  "instruction": "Detailed instruction for specialist, OR final user response if next_node is FINISH"
 }}
 
 [SEMANTIC LONG-TERM MEMORY (ChromaDB)]:
@@ -199,7 +235,11 @@ You MUST respond with a JSON object conforming to this schema:
         else:
             raw_content = str(raw_res)
             
-        response = parse_supervisor_response(raw_content)
+        native_reasoning = (
+            getattr(raw_res, "additional_kwargs", {}).get("reasoning_content") or
+            (raw_res.response_metadata.get("message", {}).get("reasoning_content") if hasattr(raw_res, "response_metadata") else None)
+        )
+        response = parse_supervisor_response(raw_content, enabled_agents=enabled_agents, default_thought=native_reasoning)
     except Exception as e:
         response = SupervisorResponse(
             next_node="FINISH",
@@ -214,11 +254,14 @@ You MUST respond with a JSON object conforming to this schema:
     
     # If next node is FINISH, add the final answer to the conversation state as an AIMessage
     new_messages = []
+    if response.thought and response.thought.strip():
+        new_messages.append(AIMessage(
+            content=f"⚡ **Thinking · Supervisor**:\n{response.thought.strip()}",
+            additional_kwargs={"agent": "Supervisor", "reasoning_content": response.thought.strip()}
+        ))
+
     if next_node == "FINISH":
-        kwargs = {}
-        if response.thought:
-            kwargs["reasoning_content"] = response.thought
-        new_messages.append(AIMessage(content=instruction, additional_kwargs=kwargs))
+        new_messages.append(AIMessage(content=instruction, additional_kwargs={"agent": "Supervisor"}))
     else:
         # Append Supervisor's delegation instruction to direct the worker
         new_messages.append(SystemMessage(content=f"[Supervisor Instruction for {next_node}]: {instruction}"))

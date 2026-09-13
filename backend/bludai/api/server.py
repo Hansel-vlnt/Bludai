@@ -1,7 +1,10 @@
 import os
 import uuid
 import sys
+import json
+import time
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
@@ -30,6 +33,9 @@ app.add_middleware(
 
 from bludai.core.settings_manager import settings_manager
 from bludai.core.models_manager import models_manager
+from bludai.core.agent_manager import agent_manager
+from bludai.tools.registry import list_available_tools
+from bludai.core.graph import recompile_graph
 
 class ChatRequest(BaseModel):
     thread_id: str
@@ -41,6 +47,30 @@ class ChatRequest(BaseModel):
 class RoleAssignmentRequest(BaseModel):
     role: str
     model_name: str
+
+class AgentCreateRequest(BaseModel):
+    name: str
+    title: Optional[str] = ""
+    description: Optional[str] = ""
+    system_prompt: Optional[str] = ""
+    model: Optional[str] = ""
+    temperature: Optional[float] = 0.2
+    tools: Optional[List[str]] = []
+    enabled: Optional[bool] = True
+    icon: Optional[str] = "Bot"
+    color: Optional[str] = "#38bdf8"
+
+class AgentUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    title: Optional[str] = None
+    description: Optional[str] = None
+    system_prompt: Optional[str] = None
+    model: Optional[str] = None
+    temperature: Optional[float] = None
+    tools: Optional[List[str]] = None
+    enabled: Optional[bool] = None
+    icon: Optional[str] = None
+    color: Optional[str] = None
 
 class SettingsRequest(BaseModel):
     nine_router_api_key: Optional[str] = None
@@ -165,24 +195,71 @@ def get_models(refresh: bool = False):
         "total": len(formatted)
     }
 
+@app.get("/api/agents")
+def get_agents():
+    """Returns all workplace agents (both system defaults and custom specialists)."""
+    return {"data": agent_manager.get_all_agents()}
+
+@app.post("/api/agents")
+def create_agent(req: AgentCreateRequest):
+    """Creates a new dynamic specialist agent in the workplace."""
+    created = agent_manager.create_agent(req.model_dump())
+    recompile_graph()
+    return {"status": "success", "data": created}
+
+@app.put("/api/agents/{agent_id}")
+def update_agent(agent_id: str, req: AgentUpdateRequest):
+    """Updates an existing workplace specialist agent."""
+    updates = {k: v for k, v in req.model_dump().items() if v is not None}
+    updated = agent_manager.update_agent(agent_id, updates)
+    if not updated:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    recompile_graph()
+    return {"status": "success", "data": updated}
+
+@app.delete("/api/agents/{agent_id}")
+def delete_agent(agent_id: str):
+    """Deletes or disables an agent."""
+    success = agent_manager.delete_agent(agent_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    recompile_graph()
+    return {"status": "success"}
+
+@app.post("/api/agents/reset")
+def reset_agents():
+    """Resets the workplace agent roster to factory defaults."""
+    reset_list = agent_manager.reset_to_defaults()
+    recompile_graph()
+    return {"status": "success", "data": reset_list}
+
+@app.get("/api/tools")
+def get_available_tools():
+    """Returns the list of all registered tools with metadata for agent capability assignment."""
+    return {"data": list_available_tools()}
+
 @app.get("/api/roles")
 def get_roles():
-    """Returns the current model assignments for agent roles."""
-    core_roles = ["Supervisor", "Developer", "Executor", "Extractor"]
-    current_roles = models_manager.get_all_roles()
+    """Returns the current model assignments for all active workplace agents."""
+    agents = agent_manager.get_all_agents()
     default_model = models_manager.get_best_default_model()
+    current_saved_roles = models_manager.get_all_roles()
+    
     result = {}
-    for r in core_roles:
-        result[r] = current_roles.get(r, default_model)
-    for k, v in current_roles.items():
-        if k not in result:
-            result[k] = v
+    for a in agents:
+        a_name = a.get("name")
+        a_model = a.get("model") or current_saved_roles.get(a_name) or default_model
+        result[a_name] = a_model
     return result
 
 @app.post("/api/roles")
 def set_role_model(req: RoleAssignmentRequest):
     """Sets a specific model for an agent role."""
     models_manager.set_model_for_role(req.role, req.model_name)
+    matched = agent_manager.get_agent_by_name(req.role)
+    if matched:
+        agent_manager.update_agent(matched["id"], {"model": req.model_name})
+    recompile_graph()
     return {"status": "success", "role": req.role, "model": req.model_name}
 
 @app.get("/api/sessions/{thread_id}/history")
@@ -322,14 +399,20 @@ def chat(req: ChatRequest):
                     tool_content = str(msg.content)[:250] + ("..." if len(str(msg.content)) > 250 else "")
                     intermediate_trace.append(f"🔧 **Tool executed ({msg.name})**:\n```\n{tool_content}\n```")
                 elif isinstance(msg, AIMessage) and msg.content:
-                    # Intermediate supervisor or worker reasoning
-                    intermediate_trace.append(f"🧠 **Agent Thought / Subtask**:\n{msg.content.strip()}")
+                    content_str = str(msg.content).strip()
+                    agent = msg.additional_kwargs.get("agent")
+                    if content_str.startswith("⚡ **Thinking"):
+                        intermediate_trace.append(content_str)
+                    elif agent:
+                        intermediate_trace.append(f"⚡ **Thinking · {agent}**:\n{content_str}")
+                    else:
+                        intermediate_trace.append(f"⚡ **Thinking · Agent**:\n{content_str}")
 
-            thinking_trace = "\n\n".join(intermediate_trace) if intermediate_trace else None
+            thinking_trace = "\n\n---\n\n".join(intermediate_trace) if intermediate_trace else None
             
             # In role mode, return the last AI message as reply
             for msg in reversed(final_messages):
-                if isinstance(msg, AIMessage) and msg.content:
+                if isinstance(msg, AIMessage) and msg.content and not str(msg.content).strip().startswith("⚡ **Thinking"):
                     return {
                         "reply": msg.content, 
                         "role": "assistant", 
@@ -346,3 +429,171 @@ def chat(req: ChatRequest):
             }
         except Exception as e:
             return format_chat_error(e)
+
+@app.post("/api/chat/stream")
+async def chat_stream(req: ChatRequest):
+    start_time = time.time()
+
+    # Auto-save session
+    existing = session_manager.get_session(req.thread_id)
+    if not existing:
+        title = req.message[:30] + ("..." if len(req.message) > 30 else "")
+        session_manager.create_or_update_session(req.thread_id, title, req.mode)
+    else:
+        session_manager.update_timestamp(req.thread_id)
+
+    inputs = {
+        "messages": [HumanMessage(content=req.message)],
+        "temperature": req.temperature
+    }
+    config = {"configurable": {"thread_id": req.thread_id}}
+
+    checkpointer = get_checkpointer()
+    state = checkpointer.get(config)
+    initial_msg_count = len(state["channel_values"].get("messages", [])) if state else 0
+
+    def calculate_tokens(messages, start_idx):
+        input_tokens = 0
+        output_tokens = 0
+        for msg in messages[start_idx:]:
+            if isinstance(msg, AIMessage):
+                usage = getattr(msg, "usage_metadata", None)
+                if usage:
+                    input_tokens += usage.get("input_tokens", 0)
+                    output_tokens += usage.get("output_tokens", 0)
+                elif hasattr(msg, "response_metadata") and "token_usage" in msg.response_metadata:
+                    tokens = msg.response_metadata["token_usage"]
+                    input_tokens += tokens.get("prompt_tokens", 0)
+                    output_tokens += tokens.get("completion_tokens", 0)
+        return {"input": input_tokens, "output": output_tokens, "total": input_tokens + output_tokens}
+
+    async def event_generator():
+        try:
+            if req.mode == "basic":
+                from bludai.core.llm_client import get_llm_client
+                model_id = req.basic_model or models_manager.get_best_default_model()
+                llm = get_llm_client(model_id=model_id, temperature=req.temperature)
+                
+                messages = [HumanMessage(content=req.message)]
+                custom_rules = settings_manager.get_system_instructions()
+                if custom_rules:
+                    messages = [SystemMessage(content=custom_rules)] + messages
+
+                model_display = model_id.split("/")[-1]
+                yield f"data: {json.dumps({'type': 'status', 'text': f'Thinking with {model_display}...'})}\n\n"
+                
+                full_reply = ""
+                full_thought = ""
+                in_thought_tag = False
+                
+                for chunk in llm.stream(messages):
+                    reasoning_chunk = getattr(chunk, "additional_kwargs", {}).get("reasoning_content") or ""
+                    content_chunk = chunk.content if isinstance(chunk.content, str) else ""
+                    
+                    if reasoning_chunk:
+                        full_thought += reasoning_chunk
+                        yield f"data: {json.dumps({'type': 'thought', 'agent': 'Model', 'delta': reasoning_chunk})}\n\n"
+                    
+                    if "<think>" in content_chunk:
+                        in_thought_tag = True
+                        parts = content_chunk.split("<think>")
+                        if parts[0]:
+                            full_reply += parts[0]
+                            yield f"data: {json.dumps({'type': 'content', 'delta': parts[0]})}\n\n"
+                        if len(parts) > 1:
+                            content_chunk = parts[1]
+                            
+                    if in_thought_tag:
+                        if "</think>" in content_chunk:
+                            t_parts = content_chunk.split("</think>")
+                            full_thought += t_parts[0]
+                            yield f"data: {json.dumps({'type': 'thought', 'agent': 'Model', 'delta': t_parts[0]})}\n\n"
+                            in_thought_tag = False
+                            if len(t_parts) > 1 and t_parts[1]:
+                                full_reply += t_parts[1]
+                                yield f"data: {json.dumps({'type': 'content', 'delta': t_parts[1]})}\n\n"
+                        else:
+                            full_thought += content_chunk
+                            yield f"data: {json.dumps({'type': 'thought', 'agent': 'Model', 'delta': content_chunk})}\n\n"
+                    else:
+                        if content_chunk:
+                            full_reply += content_chunk
+                            yield f"data: {json.dumps({'type': 'content', 'delta': content_chunk})}\n\n"
+
+                duration = round(time.time() - start_time, 2)
+                thinking_formatted = f"⚡ **Thinking · Model**:\n{full_thought.strip()}" if full_thought.strip() else None
+                yield f"data: {json.dumps({'type': 'done', 'reply': full_reply, 'thinking': thinking_formatted, 'duration': duration, 'tokens': {'input': 0, 'output': 0, 'total': 0}})}\n\n"
+
+            else:
+                # Role Mode streaming
+                from bludai.core.graph import app as compiled_app
+                checklist = ""
+                if state and "channel_values" in state:
+                    checklist = state["channel_values"].get("checklist", "")
+                    
+                inputs["checklist"] = checklist
+                inputs["next"] = "Supervisor"
+                
+                yield f"data: {json.dumps({'type': 'status', 'text': 'Supervisor analyzing request...'})}\n\n"
+                
+                collected_thoughts = []
+                final_reply = ""
+                
+                for step in compiled_app.stream(inputs, config=config):
+                    node_name = list(step.keys())[0]
+                    node_out = step[node_name]
+                    
+                    next_target = node_out.get("next")
+                    messages = node_out.get("messages", [])
+                    
+                    for m in messages:
+                        if isinstance(m, AIMessage):
+                            r_content = (
+                                getattr(m, "additional_kwargs", {}).get("reasoning_content") or
+                                (m.response_metadata.get("message", {}).get("reasoning_content") if hasattr(m, "response_metadata") else None)
+                            )
+                            if r_content:
+                                yield f"data: {json.dumps({'type': 'thought', 'agent': node_name, 'content': r_content.strip()})}\n\n"
+                                collected_thoughts.append(f"⚡ **Thinking · {node_name}**:\n{r_content.strip()}")
+
+                            content_str = str(m.content).strip() if m.content else ""
+                            if content_str.startswith("⚡ **Thinking"):
+                                t_text = content_str.split(":\n", 1)[-1] if ":\n" in content_str else content_str
+                                if not r_content or t_text.strip() != r_content.strip():
+                                    yield f"data: {json.dumps({'type': 'thought', 'agent': node_name, 'content': t_text})}\n\n"
+                                    collected_thoughts.append(content_str)
+                            elif getattr(m, "tool_calls", None):
+                                for tc in m.tool_calls:
+                                    t_name = tc.get("name", "tool")
+                                    yield f"data: {json.dumps({'type': 'tool', 'name': t_name, 'status': 'running...'})}\n\n"
+                            elif next_target == "FINISH" and content_str:
+                                final_reply = content_str
+                                yield f"data: {json.dumps({'type': 'content', 'delta': content_str})}\n\n"
+                            elif content_str and node_name != "Supervisor":
+                                yield f"data: {json.dumps({'type': 'thought', 'agent': node_name, 'content': content_str})}\n\n"
+                                collected_thoughts.append(f"⚡ **Thinking · {node_name}**:\n{content_str}")
+
+                        elif isinstance(m, ToolMessage):
+                            tool_name = getattr(m, "name", "tool")
+                            tool_output = str(m.content)[:250] + ("..." if len(str(m.content)) > 250 else "")
+                            yield f"data: {json.dumps({'type': 'tool', 'name': tool_name, 'status': 'done', 'content': tool_output})}\n\n"
+                            collected_thoughts.append(f"🔧 **Tool executed ({tool_name})**:\n```\n{tool_output}\n```")
+                    
+                    if next_target and next_target != "FINISH":
+                        yield f"data: {json.dumps({'type': 'status', 'text': f'⚡ Delegating to {next_target}...'})}\n\n"
+                
+                duration = round(time.time() - start_time, 2)
+                thinking_trace = "\n\n---\n\n".join(collected_thoughts) if collected_thoughts else None
+                
+                # Compute tokens
+                checkpointer_after = get_checkpointer()
+                state_after = checkpointer_after.get(config)
+                final_messages = state_after["channel_values"].get("messages", []) if state_after else []
+                tokens = calculate_tokens(final_messages, initial_msg_count)
+                
+                yield f"data: {json.dumps({'type': 'done', 'reply': final_reply or 'Task completed.', 'thinking': thinking_trace, 'duration': duration, 'tokens': tokens})}\n\n"
+                
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")

@@ -261,8 +261,8 @@ const SettingsModal = ({ onClose, onSettingsUpdated }) => {
                     Optionally assign specialized 9Router models to individual multi-agent nodes.
                   </p>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
-                    {['Supervisor', 'Developer', 'Executor', 'Extractor'].map(role => (
-                      <div key={role} style={{ background: 'rgba(0,0,0,0.25)', padding: '10px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    {(Object.keys(roleAssignments).length > 0 ? Object.keys(roleAssignments) : ['Supervisor', 'Developer', 'Executor']).map(role => (
+                      <div key={role} style={{ background: 'rgba(0,0,0,0.25)', padding: '10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)' }}>
                         <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--accent-color)', marginBottom: '6px' }}>
                           {role} Node
                         </div>
@@ -270,7 +270,7 @@ const SettingsModal = ({ onClose, onSettingsUpdated }) => {
                           value={roleAssignments[role] || defaultModel}
                           onChange={(e) => setRoleAssignments(prev => ({ ...prev, [role]: e.target.value }))}
                           className="terminal-select"
-                          style={{ fontSize: '0.75rem', padding: '6px' }}
+                          style={{ fontSize: '0.75rem', padding: '6px', borderRadius: '6px' }}
                         >
                           <option value={defaultModel}>Default ({defaultModel.split('/').pop()})</option>
                           {modelsList.map(m => (
@@ -282,6 +282,9 @@ const SettingsModal = ({ onClose, onSettingsUpdated }) => {
                       </div>
                     ))}
                   </div>
+                  <p className="setting-help" style={{ marginTop: '10px' }}>
+                    💡 Want to add new custom agents, modify personas, or whitelist specific tools? Open <strong>⚡ Agent Workplace</strong> from the sidebar.
+                  </p>
                 </div>
               </div>
             )}

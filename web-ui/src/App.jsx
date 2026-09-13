@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { Send, Bot, User, Cpu } from 'lucide-react';
+import { Send, Bot, User, Cpu, Users } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import ModelSelector from './components/ModelSelector';
 import TemperatureSlider from './components/TemperatureSlider';
 import SettingsModal from './components/SettingsModal';
+import AgentWorkplaceModal from './components/AgentWorkplaceModal';
 import ThinkingBlock from './components/ThinkingBlock';
 import ThinkingIndicator from './components/ThinkingIndicator';
 import { extractThinking } from './utils/thinkingParser';
@@ -19,8 +20,12 @@ function App() {
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [liveStatus, setLiveStatus] = useState('');
+  const [liveThoughts, setLiveThoughts] = useState([]);
+  const [liveTools, setLiveTools] = useState([]);
   const [mode, setMode] = useState('role');
   const [showSettings, setShowSettings] = useState(false);
+  const [showWorkplace, setShowWorkplace] = useState(false);
   const [selectedModel, setSelectedModel] = useState('');
   const [temperature, setTemperature] = useState(0.5);
   const [availableModels, setAvailableModels] = useState([]);
@@ -123,6 +128,9 @@ function App() {
     setInputText('');
     setIsTyping(true);
     setElapsedSeconds(0);
+    setLiveStatus('Analyzing request...');
+    setLiveThoughts([]);
+    setLiveTools([]);
 
     const startTime = Date.now();
     if (timerRef.current) clearInterval(timerRef.current);
@@ -131,7 +139,8 @@ function App() {
     }, 100);
 
     try {
-      const res = await fetch(`${API_BASE}/chat`, {
+      // Try streaming endpoint first
+      const response = await fetch(`${API_BASE}/chat/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -142,20 +151,120 @@ function App() {
           temperature: temperature
         })
       });
-      const data = await res.json();
-      const calcDuration = data.duration || parseFloat(((Date.now() - startTime) / 1000).toFixed(1));
-      
+
+      if (!response.ok || !response.body) {
+        throw new Error(`Stream HTTP ${response.status}`);
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+      let buffer = '';
+      let replyContent = '';
+      let finalThinking = '';
+      let calcDuration = null;
+      let calcTokens = { input: 0, output: 0, total: 0 };
+      const streamThoughts = [];
+      const streamTools = [];
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split('\n\n');
+        buffer = parts.pop();
+
+        for (const part of parts) {
+          const lines = part.split('\n');
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed.startsWith('data: ')) continue;
+            try {
+              const event = JSON.parse(trimmed.slice(6));
+              if (event.type === 'status') {
+                setLiveStatus(event.text);
+              } else if (event.type === 'thought') {
+                if (event.content) {
+                  streamThoughts.push({ agent: event.agent || 'Agent', content: event.content });
+                  setLiveThoughts([...streamThoughts]);
+                } else if (event.delta) {
+                  if (streamThoughts.length === 0) {
+                    streamThoughts.push({ agent: event.agent || 'Model', content: event.delta });
+                  } else {
+                    streamThoughts[streamThoughts.length - 1].content += event.delta;
+                  }
+                  setLiveThoughts([...streamThoughts]);
+                }
+              } else if (event.type === 'tool') {
+                // Check if already in list
+                const existingIdx = streamTools.findIndex(t => t.name === event.name);
+                if (existingIdx >= 0) {
+                  streamTools[existingIdx].status = event.status;
+                } else {
+                  streamTools.push({ name: event.name, status: event.status });
+                }
+                setLiveTools([...streamTools]);
+              } else if (event.type === 'content') {
+                replyContent += event.delta;
+              } else if (event.type === 'reply') {
+                replyContent = event.reply;
+              } else if (event.type === 'done') {
+                if (event.reply) replyContent = event.reply;
+                if (event.thinking) finalThinking = event.thinking;
+                if (event.duration) calcDuration = event.duration;
+                if (event.tokens) calcTokens = event.tokens;
+              } else if (event.type === 'error') {
+                throw new Error(event.error);
+              }
+            } catch (errParse) {
+              console.warn("Parse stream event error:", errParse);
+            }
+          }
+        }
+      }
+
+      if (!finalThinking && streamThoughts.length > 0) {
+        finalThinking = streamThoughts.map(t => `⚡ **Thinking · ${t.agent}**:\n${t.content}`).join('\n\n---\n\n');
+      }
+
+      const dur = calcDuration || parseFloat(((Date.now() - startTime) / 1000).toFixed(1));
       setMessages(prev => [...prev, { 
-        role: data.role || 'assistant', 
-        content: data.reply,
-        thinking: data.thinking,
-        duration: calcDuration,
-        tokens: data.tokens 
+        role: 'assistant', 
+        content: replyContent || "Task completed.",
+        thinking: finalThinking,
+        duration: dur,
+        tokens: calcTokens 
       }]);
       fetchSessions();
     } catch (err) {
-      console.error("Chat error:", err);
-      setMessages(prev => [...prev, { role: 'system', content: 'Connection error to backend.' }]);
+      console.warn("Streaming failed, falling back to standard /chat:", err);
+      try {
+        const res = await fetch(`${API_BASE}/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            thread_id: thread_id,
+            message: currentInput,
+            mode: mode,
+            basic_model: selectedModel,
+            temperature: temperature
+          })
+        });
+        const data = await res.json();
+        const calcDuration = data.duration || parseFloat(((Date.now() - startTime) / 1000).toFixed(1));
+        
+        setMessages(prev => [...prev, { 
+          role: data.role || 'assistant', 
+          content: data.reply,
+          thinking: data.thinking,
+          duration: calcDuration,
+          tokens: data.tokens 
+        }]);
+        fetchSessions();
+      } catch (fallbackErr) {
+        console.error("Chat fallback error:", fallbackErr);
+        setMessages(prev => [...prev, { role: 'system', content: 'Connection error to backend.' }]);
+      }
     } finally {
       if (timerRef.current) {
         clearInterval(timerRef.current);
@@ -163,6 +272,9 @@ function App() {
       }
       setIsTyping(false);
       setElapsedSeconds(0);
+      setLiveStatus('');
+      setLiveThoughts([]);
+      setLiveTools([]);
     }
   };
 
@@ -203,6 +315,13 @@ function App() {
           }}
         />
       )}
+
+      {showWorkplace && (
+        <AgentWorkplaceModal 
+          models={availableModels}
+          onClose={() => setShowWorkplace(false)}
+        />
+      )}
       
       <Sidebar 
         sessions={sessions} 
@@ -211,6 +330,7 @@ function App() {
         loadSession={loadSession} 
         handleExit={handleExit} 
         setShowSettings={setShowSettings}
+        setShowWorkplace={setShowWorkplace}
       />
 
       <div className="main-area">
@@ -231,6 +351,28 @@ function App() {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <button
+              onClick={() => setShowWorkplace(true)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '0.8rem',
+                color: '#00E5FF',
+                background: 'rgba(0, 229, 255, 0.08)',
+                padding: '6px 12px',
+                border: '1px solid rgba(0, 229, 255, 0.3)',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontWeight: 600,
+                transition: 'all 0.2s ease'
+              }}
+              title="Manage dynamic multi-agent roles and tool whitelisting"
+              onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(0, 229, 255, 0.18)'; }}
+              onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(0, 229, 255, 0.08)'; }}
+            >
+              <Users size={14} /> Workplace Roles
+            </button>
             <div 
               style={{
                 display: 'flex',
@@ -304,7 +446,15 @@ function App() {
           {isTyping && (
             <div className="message-wrapper ai">
               <div className="message-sender"><Bot size={14} /> Bludai</div>
-              <ThinkingIndicator elapsedSeconds={elapsedSeconds} mode={mode} />
+              <div className="message-bubble pinter-bubble-thinking">
+                <ThinkingIndicator 
+                  elapsedSeconds={elapsedSeconds} 
+                  mode={mode} 
+                  liveStatus={liveStatus}
+                  liveThoughts={liveThoughts}
+                  liveTools={liveTools}
+                />
+              </div>
             </div>
           )}
         </div>
@@ -324,7 +474,7 @@ function App() {
           
           <div className="input-box glass-panel">
             <textarea
-              placeholder="Message Bludai..."
+              placeholder="Ask Bludai..."
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               onKeyDown={handleKeyDown}
@@ -334,8 +484,9 @@ function App() {
               className="send-btn" 
               onClick={sendMessage}
               disabled={!inputText.trim() || isTyping}
+              title="Send prompt"
             >
-              <Send size={18} />
+              <Send size={16} />
             </button>
           </div>
         </div>
