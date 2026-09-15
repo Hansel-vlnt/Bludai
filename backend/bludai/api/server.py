@@ -540,6 +540,12 @@ async def chat_stream(req: ChatRequest):
                 final_reply = ""
                 
                 for step in compiled_app.stream(inputs, config=config):
+                    if "__interrupt__" in step:
+                        int_obj = step["__interrupt__"][0]
+                        interrupt_val = int_obj.value if hasattr(int_obj, "value") else int_obj
+                        yield f"data: {json.dumps({'type': 'interrupt', 'interrupt': interrupt_val})}\n\n"
+                        return
+
                     node_name = list(step.keys())[0]
                     node_out = step[node_name]
                     
@@ -597,3 +603,116 @@ async def chat_stream(req: ChatRequest):
             yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+class ResumeRequest(BaseModel):
+    thread_id: str
+    approved: bool
+    reason: Optional[str] = None
+
+@app.post("/api/chat/resume")
+async def chat_resume(req: ResumeRequest):
+    import time
+    start_time = time.time()
+    config = {"configurable": {"thread_id": req.thread_id}}
+
+    checkpointer = get_checkpointer()
+    state = checkpointer.get(config)
+    if not state:
+        raise HTTPException(status_code=404, detail="Thread not found or expired.")
+
+    initial_msg_count = len(state["channel_values"].get("messages", []))
+
+    def calculate_tokens(messages, start_idx):
+        input_tokens = 0
+        output_tokens = 0
+        for msg in messages[start_idx:]:
+            if isinstance(msg, AIMessage):
+                usage = getattr(msg, "usage_metadata", None)
+                if usage:
+                    input_tokens += usage.get("input_tokens", 0)
+                    output_tokens += usage.get("output_tokens", 0)
+                elif hasattr(msg, "response_metadata") and "token_usage" in msg.response_metadata:
+                    tokens = msg.response_metadata["token_usage"]
+                    input_tokens += tokens.get("prompt_tokens", 0)
+                    output_tokens += tokens.get("completion_tokens", 0)
+        return {"input": input_tokens, "output": output_tokens, "total": input_tokens + output_tokens}
+
+    async def resume_event_generator():
+        try:
+            from bludai.core.graph import app as compiled_app
+            from langgraph.types import Command
+
+            yield f"data: {json.dumps({'type': 'status', 'text': 'Resuming execution...'})}\n\n"
+
+            collected_thoughts = []
+            final_reply = ""
+
+            resume_payload = {
+                "approved": req.approved,
+                "action": "approve" if req.approved else "reject",
+                "reason": req.reason or ""
+            }
+
+            for step in compiled_app.stream(Command(resume=resume_payload), config=config):
+                if "__interrupt__" in step:
+                    int_obj = step["__interrupt__"][0]
+                    interrupt_val = int_obj.value if hasattr(int_obj, "value") else int_obj
+                    yield f"data: {json.dumps({'type': 'interrupt', 'interrupt': interrupt_val})}\n\n"
+                    return
+
+                node_name = list(step.keys())[0]
+                node_out = step[node_name]
+
+                next_target = node_out.get("next")
+                messages = node_out.get("messages", [])
+
+                for m in messages:
+                    if isinstance(m, AIMessage):
+                        r_content = (
+                            getattr(m, "additional_kwargs", {}).get("reasoning_content") or
+                            (m.response_metadata.get("message", {}).get("reasoning_content") if hasattr(m, "response_metadata") else None)
+                        )
+                        if r_content:
+                            yield f"data: {json.dumps({'type': 'thought', 'agent': node_name, 'content': r_content.strip()})}\n\n"
+                            collected_thoughts.append(f"⚡ **Thinking · {node_name}**:\n{r_content.strip()}")
+
+                        content_str = str(m.content).strip() if m.content else ""
+                        if content_str.startswith("⚡ **Thinking"):
+                            t_text = content_str.split(":\n", 1)[-1] if ":\n" in content_str else content_str
+                            if not r_content or t_text.strip() != r_content.strip():
+                                yield f"data: {json.dumps({'type': 'thought', 'agent': node_name, 'content': t_text})}\n\n"
+                                collected_thoughts.append(content_str)
+                        elif getattr(m, "tool_calls", None):
+                            for tc in m.tool_calls:
+                                t_name = tc.get("name", "tool")
+                                yield f"data: {json.dumps({'type': 'tool', 'name': t_name, 'status': 'running...'})}\n\n"
+                        elif next_target == "FINISH" and content_str:
+                            final_reply = content_str
+                            yield f"data: {json.dumps({'type': 'content', 'delta': content_str})}\n\n"
+                        elif content_str and node_name != "Supervisor":
+                            yield f"data: {json.dumps({'type': 'thought', 'agent': node_name, 'content': content_str})}\n\n"
+                            collected_thoughts.append(f"⚡ **Thinking · {node_name}**:\n{content_str}")
+
+                    elif isinstance(m, ToolMessage):
+                        tool_name = getattr(m, "name", "tool")
+                        tool_output = str(m.content)[:250] + ("..." if len(str(m.content)) > 250 else "")
+                        yield f"data: {json.dumps({'type': 'tool', 'name': tool_name, 'status': 'done', 'content': tool_output})}\n\n"
+                        collected_thoughts.append(f"🔧 **Tool executed ({tool_name})**:\n```\n{tool_output}\n```")
+
+                if next_target and next_target != "FINISH":
+                    yield f"data: {json.dumps({'type': 'status', 'text': f'⚡ Delegating to {next_target}...'})}\n\n"
+
+            duration = round(time.time() - start_time, 2)
+            thinking_trace = "\n\n---\n\n".join(collected_thoughts) if collected_thoughts else None
+
+            checkpointer_after = get_checkpointer()
+            state_after = checkpointer_after.get(config)
+            final_messages = state_after["channel_values"].get("messages", []) if state_after else []
+            tokens = calculate_tokens(final_messages, initial_msg_count)
+
+            yield f"data: {json.dumps({'type': 'done', 'reply': final_reply or 'Task completed.', 'thinking': thinking_trace, 'duration': duration, 'tokens': tokens})}\n\n"
+
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
+
+    return StreamingResponse(resume_event_generator(), media_type="text/event-stream")

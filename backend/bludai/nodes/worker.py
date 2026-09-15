@@ -1,4 +1,4 @@
-from typing import Callable
+from typing import Callable, List
 from langchain_core.messages import SystemMessage, AIMessage, ToolMessage
 from bludai.core.llm_client import get_llm_client
 from bludai.core.state import AgentState
@@ -33,53 +33,72 @@ def make_worker_node(agent_id: str) -> Callable[[AgentState], dict]:
         else:
             llm = get_llm_client(role=agent_name, temperature=agent_temp)
 
-        # Bind tools to LLM if any are permitted
-        llm_with_tools = llm.bind_tools(bound_tools) if bound_tools else llm
+        # Check recent tool executions to prevent runaway loops (safety limit: 6 tool executions per turn)
+        recent_tool_count = sum(1 for m in state.get("messages", [])[-12:] if isinstance(m, ToolMessage))
+        if recent_tool_count >= 6:
+            llm_with_tools = llm
+        else:
+            # Bind tools to LLM if any are permitted
+            llm_with_tools = llm.bind_tools(bound_tools) if bound_tools else llm
 
         # Build message history for worker turn
         messages = [SystemMessage(content=system_prompt)]
-        messages.extend(state.get("messages", [])[-6:])
+        messages.extend(state.get("messages", [])[-8:])
 
-        local_new_messages = []
-        max_steps = 10
-        step = 0
-
-        while step < max_steps:
-            response = llm_with_tools.invoke(messages)
-            if hasattr(response, "additional_kwargs"):
-                response.additional_kwargs["agent"] = agent_name
-            local_new_messages.append(response)
-
-            tool_calls = getattr(response, "tool_calls", None)
-            if not tool_calls:
-                # Execution finished
-                break
-
-            messages.append(response)
-
-            # Execute tool calls within the agent's whitelisted permissions
-            for tc in tool_calls:
-                t_name = tc.get("name")
-                t_args = tc.get("args", {})
-                t_id = tc.get("id")
-
-                tool_to_run = next((t for t in bound_tools if t.name == t_name), None)
-                if tool_to_run:
-                    try:
-                        t_output = tool_to_run.invoke(t_args)
-                    except Exception as e:
-                        t_output = f"Error executing tool {t_name}: {e}"
-                else:
-                    t_output = f"Permission Denied: Tool '{t_name}' is not assigned to agent '{agent_name}'."
-
-                tool_msg = ToolMessage(content=str(t_output), name=t_name, tool_call_id=t_id)
-                messages.append(tool_msg)
-                local_new_messages.append(tool_msg)
-
-            step += 1
+        response = llm_with_tools.invoke(messages)
+        if hasattr(response, "additional_kwargs"):
+            response.additional_kwargs["agent"] = agent_name
 
         return {
-            "messages": local_new_messages
+            "messages": [response]
         }
 
     return worker_node
+
+def execute_tools_node(state: AgentState) -> dict:
+    """
+    Centralized tool execution node for dynamic workplace agents.
+    Safely executes tool calls requested by the worker node, supporting
+    LangGraph's native interrupt() mechanism for Human-in-the-Loop approvals.
+    """
+    messages = state.get("messages", [])
+    if not messages:
+        return {"messages": []}
+
+    # Find the most recent AIMessage containing tool calls
+    last_ai = None
+    for m in reversed(messages):
+        if isinstance(m, AIMessage) and getattr(m, "tool_calls", None):
+            last_ai = m
+            break
+
+    if not last_ai or not getattr(last_ai, "tool_calls", None):
+        return {"messages": []}
+
+    agent_name = last_ai.additional_kwargs.get("agent")
+    agent = agent_manager.get_agent_by_name(agent_name) if agent_name else None
+    tool_ids = agent.get("tools", []) if agent else []
+    bound_tools = resolve_tools(tool_ids)
+
+    tool_messages = []
+    for tc in last_ai.tool_calls:
+        t_name = tc.get("name")
+        t_args = tc.get("args", {})
+        t_id = tc.get("id")
+
+        tool_to_run = next((t for t in bound_tools if t.name == t_name), None)
+        if tool_to_run:
+            try:
+                t_output = tool_to_run.invoke(t_args)
+            except Exception as e:
+                t_output = f"Error executing tool {t_name}: {e}"
+        else:
+            t_output = f"Permission Denied: Tool '{t_name}' is not assigned to agent '{agent_name}'."
+
+        tool_msg = ToolMessage(content=str(t_output), name=t_name, tool_call_id=t_id)
+        tool_messages.append(tool_msg)
+
+    return {
+        "messages": tool_messages
+    }
+
