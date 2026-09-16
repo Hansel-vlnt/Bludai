@@ -189,6 +189,7 @@ Operational Guidelines:
    - Select one of the available specialists: {options_str}.
    - Choose 'FINISH' when all tasks on the checklist are complete or when you can answer the user directly.
 4. Delegate instructions clearly to the selected specialist. Do not try to perform specialized worker tasks yourself—delegate to the appropriate agent.
+5. When the user asks for live internet news, recent releases, current benchmarks, external documentation, or real-time web information, delegate to 'Researcher' to use 'web_search'.
 
 RESPONSE FORMAT:
 You MUST respond with a JSON object conforming to this schema:

@@ -4,6 +4,7 @@ from langchain_core.tools import BaseTool
 from bludai.tools.file_tools import create_file, read_file, replace_content
 from bludai.tools.shell_tools import run_terminal_command
 from bludai.tools.vector_tools import semantic_code_search, index_project_codebase
+from bludai.tools.web_tools import web_search
 
 ALL_TOOLS: Dict[str, BaseTool] = {
     "create_file": create_file,
@@ -12,6 +13,7 @@ ALL_TOOLS: Dict[str, BaseTool] = {
     "run_terminal_command": run_terminal_command,
     "semantic_code_search": semantic_code_search,
     "index_project_codebase": index_project_codebase,
+    "web_search": web_search,
 }
 
 TOOL_METADATA: List[Dict[str, Any]] = [
@@ -56,6 +58,13 @@ TOOL_METADATA: List[Dict[str, Any]] = [
         "category": "Terminal",
         "description": "Execute terminal commands, tests, builds, and scripts.",
         "risk": "high"
+    },
+    {
+        "id": "web_search",
+        "name": "Live Web Search",
+        "category": "Internet Search",
+        "description": "Search the live web in real-time for current news, facts, and documentation.",
+        "risk": "low"
     }
 ]
 

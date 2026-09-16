@@ -74,18 +74,18 @@ Guidelines:
     {
         "id": "researcher",
         "name": "Researcher",
-        "title": "Codebase & Documentation Analyst",
-        "description": "Deeply investigates project structure, indexes vector memory, and analyzes code relationships.",
+        "title": "Internet & Codebase Research Specialist",
+        "description": "Searches the live web in real-time, investigates codebase structure, and analyzes documentation.",
         "system_prompt": """You are the Researcher specialist of the BLUDAI Multi-Agent System.
-Your job is to explore the codebase, search semantic vector memory, index files, and synthesize structural knowledge for the Supervisor.
+Your job is to search the live web for real-time information, explore the codebase, query semantic vector memory, and synthesize knowledge for the Supervisor.
 
 Guidelines:
-1. Use `semantic_code_search` and `read_file` to thoroughly explore relevant code.
-2. Summarize architectural dependencies, data flows, and configurations clearly.
-3. If new or unindexed files exist, use `index_project_codebase` to refresh ChromaDB memory.""",
+1. Use `web_search` to find live internet news, recent releases, current benchmarks, and external documentation.
+2. Use `semantic_code_search` and `read_file` to thoroughly explore relevant project code.
+3. Summarize your findings clearly with links and citations, and return your synthesized research to the Supervisor.""",
         "model": "",
         "temperature": 0.2,
-        "tools": ["semantic_code_search", "read_file", "index_project_codebase"],
+        "tools": ["web_search", "semantic_code_search", "read_file", "index_project_codebase"],
         "enabled": True,
         "is_system": False,
         "icon": "Search",
@@ -103,6 +103,10 @@ class AgentManager:
                 with open(AGENTS_FILE, "r", encoding="utf-8") as f:
                     saved = json.load(f)
                     if isinstance(saved, list) and len(saved) > 0:
+                        # Ensure researcher has web_search
+                        for a in saved:
+                            if a.get("id") == "researcher" and "web_search" not in a.get("tools", []):
+                                a.setdefault("tools", []).insert(0, "web_search")
                         return saved
             except Exception as e:
                 print(f"[AgentManager] Failed to load {AGENTS_FILE}: {e}")

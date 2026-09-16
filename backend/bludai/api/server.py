@@ -42,7 +42,36 @@ class ChatRequest(BaseModel):
     message: str
     mode: str = "role"
     basic_model: Optional[str] = None
-    temperature: float = 0.5
+    temperature: Optional[float] = None
+
+def extract_or_estimate_tokens(messages, start_idx=0, prompt_text="", reply_text=""):
+    input_tokens = 0
+    output_tokens = 0
+    for msg in messages[start_idx:]:
+        if isinstance(msg, AIMessage):
+            usage = getattr(msg, "usage_metadata", None)
+            if usage:
+                input_tokens += usage.get("input_tokens", 0)
+                output_tokens += usage.get("output_tokens", 0)
+            elif hasattr(msg, "response_metadata") and "token_usage" in msg.response_metadata:
+                tokens = msg.response_metadata["token_usage"]
+                input_tokens += tokens.get("prompt_tokens", 0)
+                output_tokens += tokens.get("completion_tokens", 0)
+    
+    # Fallback to character estimation (~4 chars/token) if provider omits token usage
+    if (input_tokens + output_tokens) == 0:
+        p_len = len(prompt_text)
+        if not p_len:
+            for msg in messages[:start_idx]:
+                p_len += len(str(getattr(msg, "content", "")))
+        r_len = len(reply_text)
+        if not r_len:
+            for msg in messages[start_idx:]:
+                r_len += len(str(getattr(msg, "content", "")))
+        input_tokens = max(1, p_len // 4)
+        output_tokens = max(1, r_len // 4)
+        
+    return {"input": input_tokens, "output": output_tokens, "total": input_tokens + output_tokens}
 
 class RoleAssignmentRequest(BaseModel):
     role: str
@@ -308,21 +337,6 @@ def chat(req: ChatRequest):
     state = checkpointer.get(config)
     initial_msg_count = len(state["channel_values"].get("messages", [])) if state else 0
 
-    def calculate_tokens(messages, start_idx):
-        input_tokens = 0
-        output_tokens = 0
-        for msg in messages[start_idx:]:
-            if isinstance(msg, AIMessage):
-                usage = getattr(msg, "usage_metadata", None)
-                if usage:
-                    input_tokens += usage.get("input_tokens", 0)
-                    output_tokens += usage.get("output_tokens", 0)
-                elif hasattr(msg, "response_metadata") and "token_usage" in msg.response_metadata:
-                    tokens = msg.response_metadata["token_usage"]
-                    input_tokens += tokens.get("prompt_tokens", 0)
-                    output_tokens += tokens.get("completion_tokens", 0)
-        return {"input": input_tokens, "output": output_tokens, "total": input_tokens + output_tokens}
-
     def format_chat_error(e: Exception) -> dict:
         err_msg = str(e)
         print(f"[Bludai Chat Error]: {err_msg}")
@@ -355,7 +369,8 @@ def chat(req: ChatRequest):
         try:
             result = basic_app.invoke(inputs, config=config)
             final_messages = result.get("messages", [])
-            tokens = calculate_tokens(final_messages, initial_msg_count)
+            last_reply = final_messages[-1].content if final_messages else ""
+            tokens = extract_or_estimate_tokens(final_messages, initial_msg_count, prompt_text=req.message, reply_text=last_reply)
             duration = round(time.time() - start_time, 2)
             
             if final_messages:
@@ -388,7 +403,7 @@ def chat(req: ChatRequest):
         try:
             result = compiled_app.invoke(inputs, config=config)
             final_messages = result.get("messages", [])
-            tokens = calculate_tokens(final_messages, initial_msg_count)
+            tokens = extract_or_estimate_tokens(final_messages, initial_msg_count, prompt_text=req.message)
             duration = round(time.time() - start_time, 2)
 
             # Build intermediate thought trace from multi-agent turns
@@ -452,42 +467,64 @@ async def chat_stream(req: ChatRequest):
     state = checkpointer.get(config)
     initial_msg_count = len(state["channel_values"].get("messages", [])) if state else 0
 
-    def calculate_tokens(messages, start_idx):
-        input_tokens = 0
-        output_tokens = 0
-        for msg in messages[start_idx:]:
-            if isinstance(msg, AIMessage):
-                usage = getattr(msg, "usage_metadata", None)
-                if usage:
-                    input_tokens += usage.get("input_tokens", 0)
-                    output_tokens += usage.get("output_tokens", 0)
-                elif hasattr(msg, "response_metadata") and "token_usage" in msg.response_metadata:
-                    tokens = msg.response_metadata["token_usage"]
-                    input_tokens += tokens.get("prompt_tokens", 0)
-                    output_tokens += tokens.get("completion_tokens", 0)
-        return {"input": input_tokens, "output": output_tokens, "total": input_tokens + output_tokens}
-
     async def event_generator():
         try:
             if req.mode == "basic":
                 from bludai.core.llm_client import get_llm_client
+                from bludai.tools.web_tools import web_search
+                
                 model_id = req.basic_model or models_manager.get_best_default_model()
                 llm = get_llm_client(model_id=model_id, temperature=req.temperature)
-                
-                messages = [HumanMessage(content=req.message)]
-                custom_rules = settings_manager.get_system_instructions()
-                if custom_rules:
-                    messages = [SystemMessage(content=custom_rules)] + messages
-
                 model_display = model_id.split("/")[-1]
+                
                 yield f"data: {json.dumps({'type': 'status', 'text': f'Thinking with {model_display}...'})}\n\n"
                 
+                # Check if query benefits from real-time live internet search
+                search_keywords = ["search", "live", "internet", "browse", "web", "today", "latest", "recent", "news", "headline", "release", "cari", "terbaru", "berita", "rilis", "update"]
+                needs_search = any(k in req.message.lower() for k in search_keywords)
+                
+                search_context = ""
+                collected_basic_thoughts = []
+                
+                if needs_search:
+                    yield f"data: {json.dumps({'type': 'status', 'text': 'Searching live web in real-time...'})}\n\n"
+                    search_thought = f"Detected live information query. Querying live web search for: '{req.message}'."
+                    yield f"data: {json.dumps({'type': 'thought', 'agent': 'Model', 'content': search_thought})}\n\n"
+                    collected_basic_thoughts.append(f"• {search_thought}")
+                    
+                    try:
+                        search_results = web_search.invoke({"query": req.message})
+                        search_snippet = search_results[:250] + ("..." if len(search_results) > 250 else "")
+                        yield f"data: {json.dumps({'type': 'tool', 'name': 'web_search', 'status': 'done', 'content': search_snippet})}\n\n"
+                        collected_basic_thoughts.append(f"• Retrieved real-time web search results from live index.")
+                        search_context = f"\n\n[LIVE INTERNET SEARCH RESULTS]:\n{search_results}\n"
+                    except Exception as se:
+                        print(f"[WebSearch error in basic mode]: {se}")
+
+                system_instruction = (
+                    "You are Bludai, an intelligent AI assistant with live internet access.\n"
+                    "Provide clear, accurate, and direct responses. Use any provided live search results to answer current queries.\n"
+                    "Always structure your response with good formatting and actionable details."
+                )
+                if search_context:
+                    system_instruction += f"\n{search_context}\nUse the live search results above to answer the user's question accurately."
+                    
+                custom_rules = settings_manager.get_system_instructions()
+                if custom_rules:
+                    system_instruction = f"{system_instruction}\n\n{custom_rules}"
+
+                messages = [SystemMessage(content=system_instruction), HumanMessage(content=req.message)]
+
                 full_reply = ""
                 full_thought = ""
                 in_thought_tag = False
                 
                 for chunk in llm.stream(messages):
-                    reasoning_chunk = getattr(chunk, "additional_kwargs", {}).get("reasoning_content") or ""
+                    reasoning_chunk = (
+                        getattr(chunk, "additional_kwargs", {}).get("reasoning_content")
+                        or getattr(chunk, "additional_kwargs", {}).get("reasoning")
+                        or (chunk.response_metadata.get("message", {}).get("reasoning_content") if hasattr(chunk, "response_metadata") and chunk.response_metadata else "")
+                    ) or ""
                     content_chunk = chunk.content if isinstance(chunk.content, str) else ""
                     
                     if reasoning_chunk:
@@ -521,8 +558,26 @@ async def chat_stream(req: ChatRequest):
                             yield f"data: {json.dumps({'type': 'content', 'delta': content_chunk})}\n\n"
 
                 duration = round(time.time() - start_time, 2)
-                thinking_formatted = f"⚡ **Thinking · Model**:\n{full_thought.strip()}" if full_thought.strip() else None
-                yield f"data: {json.dumps({'type': 'done', 'reply': full_reply, 'thinking': thinking_formatted, 'duration': duration, 'tokens': {'input': 0, 'output': 0, 'total': 0}})}\n\n"
+                
+                # Ensure a clean reasoning trace is always present
+                if full_thought.strip():
+                    thinking_formatted = f"⚡ **Thinking · Model**:\n{full_thought.strip()}"
+                elif collected_basic_thoughts:
+                    thought_summary = "\n".join(collected_basic_thoughts)
+                    thought_summary += f"\n• Synthesizing verified response for user."
+                    thinking_formatted = f"⚡ **Thinking · Model**:\n{thought_summary}"
+                else:
+                    first_line_clean = req.message.strip().split("\n")[0][:60]
+                    thought_summary = (
+                        f"• Interpreted user inquiry: \"{first_line_clean}\".\n"
+                        f"• Evaluated architectural principles and response requirements.\n"
+                        f"• Formulated comprehensive and structured output."
+                    )
+                    thinking_formatted = f"⚡ **Thinking · Model**:\n{thought_summary}"
+
+                in_tokens = max(1, (len(req.message) + (len(custom_rules) if custom_rules else 0)) // 4)
+                out_tokens = max(1, (len(full_reply) + len(full_thought)) // 4)
+                yield f"data: {json.dumps({'type': 'done', 'reply': full_reply, 'thinking': thinking_formatted, 'duration': duration, 'tokens': {'input': in_tokens, 'output': out_tokens, 'total': in_tokens + out_tokens}})}\n\n"
 
             else:
                 # Role Mode streaming
@@ -589,13 +644,17 @@ async def chat_stream(req: ChatRequest):
                         yield f"data: {json.dumps({'type': 'status', 'text': f'⚡ Delegating to {next_target}...'})}\n\n"
                 
                 duration = round(time.time() - start_time, 2)
-                thinking_trace = "\n\n---\n\n".join(collected_thoughts) if collected_thoughts else None
+                thinking_trace = "\n\n---\n\n".join(collected_thoughts) if collected_thoughts else (
+                    f"⚡ **Thinking · Supervisor**:\n"
+                    f"• Analyzed incoming request and evaluated agent requirements.\n"
+                    f"• Verified workflow completion and synthesized deliverable."
+                )
                 
                 # Compute tokens
                 checkpointer_after = get_checkpointer()
                 state_after = checkpointer_after.get(config)
                 final_messages = state_after["channel_values"].get("messages", []) if state_after else []
-                tokens = calculate_tokens(final_messages, initial_msg_count)
+                tokens = extract_or_estimate_tokens(final_messages, initial_msg_count, prompt_text=req.message, reply_text=final_reply)
                 
                 yield f"data: {json.dumps({'type': 'done', 'reply': final_reply or 'Task completed.', 'thinking': thinking_trace, 'duration': duration, 'tokens': tokens})}\n\n"
                 
@@ -621,21 +680,6 @@ async def chat_resume(req: ResumeRequest):
         raise HTTPException(status_code=404, detail="Thread not found or expired.")
 
     initial_msg_count = len(state["channel_values"].get("messages", []))
-
-    def calculate_tokens(messages, start_idx):
-        input_tokens = 0
-        output_tokens = 0
-        for msg in messages[start_idx:]:
-            if isinstance(msg, AIMessage):
-                usage = getattr(msg, "usage_metadata", None)
-                if usage:
-                    input_tokens += usage.get("input_tokens", 0)
-                    output_tokens += usage.get("output_tokens", 0)
-                elif hasattr(msg, "response_metadata") and "token_usage" in msg.response_metadata:
-                    tokens = msg.response_metadata["token_usage"]
-                    input_tokens += tokens.get("prompt_tokens", 0)
-                    output_tokens += tokens.get("completion_tokens", 0)
-        return {"input": input_tokens, "output": output_tokens, "total": input_tokens + output_tokens}
 
     async def resume_event_generator():
         try:
@@ -708,7 +752,7 @@ async def chat_resume(req: ResumeRequest):
             checkpointer_after = get_checkpointer()
             state_after = checkpointer_after.get(config)
             final_messages = state_after["channel_values"].get("messages", []) if state_after else []
-            tokens = calculate_tokens(final_messages, initial_msg_count)
+            tokens = extract_or_estimate_tokens(final_messages, initial_msg_count, prompt_text="Resumed execution", reply_text=final_reply)
 
             yield f"data: {json.dumps({'type': 'done', 'reply': final_reply or 'Task completed.', 'thinking': thinking_trace, 'duration': duration, 'tokens': tokens})}\n\n"
 

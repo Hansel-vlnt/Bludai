@@ -1,6 +1,7 @@
 import urllib.request
 import json
 import os
+from typing import Optional, Any
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from rich.console import Console
@@ -41,7 +42,7 @@ def check_9router_status(url: str = None) -> bool:
         pass
     return False
 
-def get_llm_client(role: str = None, model_id: str = None, temperature: float = 0.0):
+def get_llm_client(role: str = None, model_id: str = None, temperature: Optional[float] = None):
     """
     Returns a ChatOpenAI instance configured to communicate with the local 9Router proxy
     or any custom OpenAI-compatible endpoint configured in Settings.
@@ -57,10 +58,13 @@ def get_llm_client(role: str = None, model_id: str = None, temperature: float = 
     base_url = settings_manager.get_base_url()
     max_tokens = settings_manager.get_settings().get("max_tokens", 4096)
     
-    return ChatOpenAI(
-        model=model_name,
-        openai_api_key=api_key,
-        openai_api_base=base_url,
-        temperature=temperature,
-        max_tokens=max_tokens,
-    )
+    kwargs = {
+        "model": model_name,
+        "openai_api_key": api_key,
+        "openai_api_base": base_url,
+        "max_tokens": max_tokens,
+    }
+    if temperature is not None:
+        kwargs["temperature"] = temperature
+        
+    return ChatOpenAI(**kwargs)

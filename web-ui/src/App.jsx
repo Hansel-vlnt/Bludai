@@ -3,7 +3,6 @@ import ReactMarkdown from 'react-markdown';
 import { Send, Bot, User, Cpu, Users } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import ModelSelector from './components/ModelSelector';
-import TemperatureSlider from './components/TemperatureSlider';
 import SettingsModal from './components/SettingsModal';
 import AgentWorkplaceModal from './components/AgentWorkplaceModal';
 import ThinkingBlock from './components/ThinkingBlock';
@@ -511,10 +510,20 @@ function App() {
                       <ReactMarkdown>{cleanContent}</ReactMarkdown>
                     </div>
                   )}
-                  {msg.tokens && msg.tokens.total > 0 && (
-                    <div className="token-tracker">
-                      <span className="token-main"><Cpu size={12}/> Tokens: {msg.tokens.total.toLocaleString()}</span>
-                      <span className="token-details">[In: {msg.tokens.input.toLocaleString()} | Out: {msg.tokens.output.toLocaleString()}]</span>
+                  {isAi && (msg.tokens || msg.duration) && (
+                    <div className="token-meta-bar">
+                      <div 
+                        className="token-pill-badge" 
+                        title={msg.tokens ? `Prompt tokens: ${msg.tokens.input?.toLocaleString()} | Completion: ${msg.tokens.output?.toLocaleString()}` : ''}
+                      >
+                        <Cpu size={12} className="token-cpu-icon" />
+                        <span className="token-count-text">
+                          {msg.tokens?.total ? `${msg.tokens.total.toLocaleString()} tokens` : (msg.tokens?.input ? `${(msg.tokens.input + (msg.tokens.output || 0)).toLocaleString()} tokens` : 'Tokens tracked')}
+                        </span>
+                        {msg.duration && (
+                          <span className="token-dur-text">· {msg.duration}s</span>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -525,7 +534,7 @@ function App() {
           {isTyping && (
             <div className="message-wrapper ai">
               <div className="message-sender"><Bot size={14} /> Bludai</div>
-              <div className="message-bubble pinter-bubble-thinking">
+              <div className="message-bubble claude-bubble-thinking">
                 <ThinkingIndicator 
                   elapsedSeconds={elapsedSeconds} 
                   mode={mode} 
@@ -555,7 +564,6 @@ function App() {
               onRefresh={() => fetchModels(true)}
               isRefreshing={isRefreshingModels}
             />
-            <TemperatureSlider temperature={temperature} setTemperature={setTemperature} />
           </div>
           
           <div className="input-box glass-panel">

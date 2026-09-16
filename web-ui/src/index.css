@@ -1519,427 +1519,562 @@ textarea::placeholder {
    - Collapsible post-completion thinking block
    ========================================================================== */
 
-/* Active thinking container within message bubble */
-.message-bubble.pinter-bubble-thinking {
-  background: rgba(15, 20, 32, 0.9);
-  backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
-  padding: 16px 18px;
-  min-width: 320px;
+/* ==========================================================================
+   CLAUDE-STYLE THINKING UI & REAL-TIME REASONING PROCESS
+   ========================================================================== */
+
+.message-bubble.claude-bubble-thinking {
+  background: rgba(15, 20, 32, 0.6);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  padding: 8px 12px;
+  min-width: 260px;
   max-width: 100%;
 }
 
-.pinter-live-indicator-container {
+.claude-thinking-container {
   display: flex;
   flex-direction: column;
-  gap: 12px;
   width: 100%;
-}
-
-/* Top status (e.g. "○ Menjalankan yahoo_get_news...") */
-.pinter-live-top-status {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.82rem;
-  color: #94a3b8;
-  font-style: italic;
-  padding: 2px 4px;
-}
-
-.pinter-top-spinner {
-  width: 13px;
-  height: 13px;
-  border: 2px solid rgba(148, 163, 184, 0.25);
-  border-top-color: #94a3b8;
-  border-radius: 50%;
-  animation: pinterSpin 0.9s linear infinite;
-  flex-shrink: 0;
-}
-
-.pinter-top-status-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Live Thoughts Stream */
-.pinter-live-thoughts-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-/* Thought Card (Both Live & Completed) */
-.pinter-thought-card {
-  background: rgba(18, 24, 38, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 12px;
-  padding: 12px 16px;
-  transition: all 0.2s ease;
-}
-
-.pinter-thought-card:hover {
-  background: rgba(22, 30, 48, 0.8);
-  border-color: rgba(255, 255, 255, 0.12);
-}
-
-.pinter-live-thought {
-  border-left: 3px solid #f59e0b;
-}
-
-/* Amber Thinking Badge (⚡ Thinking <agent>) */
-.pinter-agent-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   margin-bottom: 8px;
 }
 
-.pinter-badge-icon {
-  font-size: 0.85rem;
-  color: #f59e0b;
-  line-height: 1;
-  filter: drop-shadow(0 0 4px rgba(245, 158, 11, 0.4));
-}
-
-.pinter-badge-label {
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: #f59e0b;
-  letter-spacing: 0.01em;
-}
-
-.pinter-badge-agent {
-  font-size: 0.82rem;
-  font-weight: 500;
-  color: #94a3b8;
-  font-family: inherit;
-}
-
-/* Thought Content */
-.pinter-thought-text {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  font-size: 0.88rem;
-  line-height: 1.65;
-  color: #cbd5e1;
-}
-
-.pinter-thought-text p {
-  margin-bottom: 8px;
-}
-
-.pinter-thought-text p:last-child {
+.claude-thinking-container.live {
   margin-bottom: 0;
 }
 
-.pinter-thought-text code {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.82em;
-  background: rgba(0, 0, 0, 0.35);
-  padding: 2px 5px;
-  border-radius: 4px;
-  color: #38bdf8;
-}
-
-/* Placeholder shimmer while waiting for first thought token */
-.pinter-placeholder-content {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 4px 0;
-}
-
-.pinter-skeleton-bar {
-  height: 10px;
-  border-radius: 6px;
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.05) 25%, rgba(255, 255, 255, 0.12) 50%, rgba(255, 255, 255, 0.05) 75%);
-  background-size: 200% 100%;
-  animation: pinterShimmer 1.8s infinite;
-}
-
-.pinter-skeleton-bar.bar-1 { width: 75%; }
-.pinter-skeleton-bar.bar-2 { width: 50%; }
-
-@keyframes pinterShimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
-
-/* Active Running Tools List (Matching Pinter: "○ yahoo_get_news running...") */
-.pinter-live-tools-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-top: 4px;
-}
-
-.pinter-live-tool-row {
+.claude-thinking-header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-  background: rgba(6, 182, 212, 0.06);
-  border: 1px solid rgba(6, 182, 212, 0.22);
+  justify-content: space-between;
+  padding: 6px 10px;
   border-radius: 8px;
-  animation: fadeIn 0.2s ease-out;
+  background: rgba(255, 255, 255, 0.02);
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s ease;
+  gap: 12px;
+  border: 1px solid transparent;
 }
 
-/* Cyan rotating spinner */
-.pinter-tool-spinner {
-  width: 14px;
-  height: 14px;
-  border: 2px solid rgba(6, 182, 212, 0.25);
-  border-top-color: #06b6d4;
-  border-radius: 50%;
-  animation: pinterSpin 0.75s linear infinite;
+.claude-thinking-header:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+.claude-thinking-left {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Claude Coral 8-pointed starburst */
+.claude-burst {
+  color: #d97757;
   flex-shrink: 0;
-  box-shadow: 0 0 8px rgba(6, 182, 212, 0.3);
+  transition: transform 0.3s ease;
 }
 
-.pinter-tool-name {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.83rem;
-  font-weight: 700;
-  color: #f8fafc;
-  letter-spacing: -0.01em;
+.claude-burst.animate-spin-slow {
+  animation: claudeBurstSpin 8s linear infinite;
 }
 
-.pinter-tool-status {
-  font-size: 0.76rem;
-  color: #67e8f9;
-  font-family: 'Inter', system-ui, sans-serif;
-  margin-left: auto;
-}
-
-@keyframes pinterSpin {
+@keyframes claudeBurstSpin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
 
-/* Active Pulse Bar at bottom of live indicator */
-.pinter-active-pulse-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 12px;
-  background: rgba(245, 158, 11, 0.07);
-  border: 1px solid rgba(245, 158, 11, 0.2);
-  border-radius: 8px;
-  font-size: 0.8rem;
-}
-
-.pinter-pulse-left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #f59e0b;
-}
-
-.pinter-pulse-zap {
-  color: #f59e0b;
-  animation: zapGlow 1.5s infinite ease-in-out;
-}
-
-@keyframes zapGlow {
-  0%, 100% { opacity: 0.7; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.15); filter: drop-shadow(0 0 6px #f59e0b); }
-}
-
-.pinter-pulse-title {
-  font-weight: 600;
-  color: #fbbf24;
-}
-
-.pinter-pulse-dot {
-  color: #78716c;
-}
-
-.pinter-pulse-status {
-  color: #cbd5e1;
-  font-size: 0.78rem;
-  max-width: 260px;
+.claude-thinking-status {
+  font-size: 0.85rem;
+  color: #9ca3af;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  font-weight: 400;
+  letter-spacing: -0.01em;
 }
 
-.pinter-pulse-dots {
-  display: flex;
-  gap: 4px;
-}
-
-.pdot {
-  width: 5px;
-  height: 5px;
-  background: #f59e0b;
-  border-radius: 50%;
-  animation: dotBlink 1.4s infinite ease-in-out both;
-}
-
-.pdot-1 { animation-delay: -0.32s; }
-.pdot-2 { animation-delay: -0.16s; }
-.pdot-3 { animation-delay: 0s; }
-
-@keyframes dotBlink {
-  0%, 80%, 100% { transform: scale(0.4); opacity: 0.3; }
-  40% { transform: scale(1.1); opacity: 1; box-shadow: 0 0 6px #f59e0b; }
-}
-
-/* ==========================================================================
-   COMPLETED MESSAGE: Pinter-Style Collapsible Thinking Block
-   ========================================================================== */
-
-.pinter-thinking-block {
-  margin-bottom: 12px;
-  background: rgba(15, 20, 32, 0.75);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-  overflow: hidden;
-  transition: all 0.2s ease;
-}
-
-.pinter-thinking-block.expanded {
-  border-color: rgba(245, 158, 11, 0.25);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
-}
-
-.pinter-thinking-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 14px;
-  background: rgba(255, 255, 255, 0.02);
-  cursor: pointer;
-  user-select: none;
-  transition: background 0.2s ease;
-}
-
-.pinter-thinking-header:hover {
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.pinter-header-left {
+.claude-thinking-right {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
 }
 
-.pinter-zap-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #f59e0b;
+.claude-thinking-time {
+  font-size: 0.78rem;
+  color: #6b7280;
+  font-family: 'JetBrains Mono', monospace;
 }
 
-.pinter-header-title {
-  font-size: 0.83rem;
-  font-weight: 600;
-  color: #f59e0b;
-}
-
-.pinter-duration-pill {
-  font-size: 0.72rem;
-  font-weight: 600;
-  background: rgba(245, 158, 11, 0.12);
-  color: #fbbf24;
-  padding: 2px 7px;
-  border-radius: 10px;
-  border: 1px solid rgba(245, 158, 11, 0.25);
-}
-
-.pinter-steps-count {
-  font-size: 0.73rem;
-  color: #94a3b8;
-}
-
-.pinter-header-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.pinter-copy-btn {
-  background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 6px;
-  color: #94a3b8;
-  padding: 3px 7px;
-  font-size: 0.72rem;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  transition: all 0.2s ease;
-}
-
-.pinter-copy-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #f8fafc;
-  border-color: rgba(255, 255, 255, 0.18);
-}
-
-.pinter-chevron {
-  color: #94a3b8;
+.claude-thinking-chevron {
+  color: #6b7280;
   display: flex;
   align-items: center;
   transition: transform 0.2s ease;
 }
 
-.pinter-thinking-body {
+.claude-thinking-container.expanded .claude-thinking-chevron {
+  color: #d97757;
+}
+
+/* Drawer / Expandable thought transcript */
+.claude-thinking-drawer {
+  margin-top: 8px;
   padding: 12px 14px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(0, 0, 0, 0.4);
+  border-left: 2px solid #d97757;
+  border-radius: 0 8px 8px 0;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  background: rgba(11, 15, 25, 0.4);
+  max-height: 420px;
+  overflow-y: auto;
+  animation: fadeIn 0.2s ease-out;
 }
 
-/* Completed Tool Execution Card */
-.pinter-tool-execution-card {
-  background: rgba(6, 182, 212, 0.05);
-  border: 1px solid rgba(6, 182, 212, 0.2);
-  border-radius: 8px;
-  padding: 8px 12px;
+.claude-drawer-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.pinter-tool-header {
+.claude-drawer-title {
+  font-size: 0.76rem;
+  color: #6b7280;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.claude-copy-btn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  color: #9ca3af;
+  font-size: 0.74rem;
+  padding: 2px 8px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.claude-copy-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #f3f4f6;
+}
+
+.claude-sections-list,
+.claude-live-thoughts-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.claude-thought-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.claude-thought-agent-tag {
+  display: inline-flex;
+  align-self: flex-start;
+  font-size: 0.72rem;
+  color: #d97757;
+  background: rgba(217, 119, 87, 0.1);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.claude-thought-markdown {
+  font-size: 0.84rem;
+  line-height: 1.55;
+  color: #d1d5db;
+  font-family: inherit;
+}
+
+.claude-thought-markdown p {
+  margin-bottom: 6px;
+}
+
+.claude-thought-markdown p:last-child {
+  margin-bottom: 0;
+}
+
+/* Tool execution items */
+.claude-live-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.claude-tool-item {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.82rem;
+  font-size: 0.8rem;
+  color: #38bdf8;
 }
 
-.pinter-tool-spinner-done {
-  color: #10b981;
-  font-weight: 700;
-  font-size: 0.85rem;
+.claude-tool-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #38bdf8;
+  box-shadow: 0 0 6px #38bdf8;
+  animation: pulse 1.5s infinite;
 }
 
-.pinter-tool-tag {
-  color: #06b6d4;
-  font-size: 0.72rem;
-  background: rgba(6, 182, 212, 0.1);
-  padding: 1px 6px;
-  border-radius: 4px;
-  border: 1px solid rgba(6, 182, 212, 0.2);
-  margin-left: auto;
-}
-
-.pinter-tool-output-snippet {
-  margin-top: 8px;
-  padding: 8px 10px;
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 6px;
+.claude-tool-name {
   font-family: 'JetBrains Mono', monospace;
+  font-weight: 500;
+}
+
+.claude-tool-status {
+  font-size: 0.75rem;
+  color: #64748b;
+  font-style: italic;
+}
+
+.claude-tool-card {
+  background: rgba(56, 189, 248, 0.04);
+  border: 1px solid rgba(56, 189, 248, 0.15);
+  border-radius: 6px;
+  padding: 6px 10px;
+}
+
+.claude-tool-card-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+}
+
+.claude-tool-badge {
+  font-size: 0.68rem;
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  padding: 1px 4px;
+  border-radius: 3px;
+  text-transform: uppercase;
+}
+
+.claude-tool-card-name {
+  font-family: 'JetBrains Mono', monospace;
+  color: #e2e8f0;
+  font-weight: 500;
+}
+
+.claude-tool-card-output {
+  margin-top: 6px;
+  padding: 6px 8px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.74rem;
+  color: #94a3b8;
+  max-height: 100px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+}
+
+.claude-live-empty {
+  font-size: 0.8rem;
+  color: #6b7280;
+  font-style: italic;
+  padding: 6px 0;
+}
+
+/* ==========================================================================
+   REASONING & THINKING TRACE (MATCHING USER REFERENCE IMAGES 1 & 2)
+   ========================================================================== */
+
+.reasoning-trace-wrapper {
+  width: 100%;
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Top Blue-Outlined Pill Header (Exact Image 1 style) */
+.reasoning-summary-pill {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid rgba(59, 130, 246, 0.45);
+  border-radius: 8px;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s ease;
+  gap: 12px;
+}
+
+.reasoning-summary-pill:hover {
+  background: rgba(30, 58, 138, 0.2);
+  border-color: rgba(59, 130, 246, 0.75);
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.15);
+}
+
+.reasoning-summary-pill.live-pill {
+  border-color: rgba(0, 229, 255, 0.4);
+  background: rgba(0, 229, 255, 0.04);
+}
+
+.reasoning-summary-left {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex: 1;
+  min-width: 0;
+}
+
+.reasoning-pulse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #00E5FF;
+  box-shadow: 0 0 8px #00E5FF;
+  animation: pulse 1.4s infinite;
+  flex-shrink: 0;
+}
+
+.reasoning-summary-text {
+  font-size: 0.88rem;
+  color: #f1f5f9;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -0.01em;
+}
+
+.reasoning-pill-chevron {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+
+.reasoning-live-timer {
   font-size: 0.76rem;
+  font-family: 'JetBrains Mono', monospace;
+  color: #38bdf8;
+}
+
+/* Expanded Details Card (Matching Image 1 & Image 2) */
+.reasoning-details-card {
+  background: rgba(10, 14, 23, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.reasoning-details-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.reasoning-duration-label {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #94a3b8;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.reasoning-copy-btn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  color: #94a3b8;
+  font-size: 0.72rem;
+  padding: 2px 7px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.reasoning-copy-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #f8fafc;
+}
+
+/* Thought Lines List (Matching Image 1: "Menafsirkan permintaan...", "Penyusunan...") */
+.reasoning-lines-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.reasoning-thought-line {
+  font-size: 0.86rem;
+  color: #cbd5e1;
+  line-height: 1.55;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.reasoning-thought-line.text-muted-subtle {
+  color: #64748b;
+  font-style: italic;
+}
+
+/* Tool Action Traces (Matching Image 2) */
+.reasoning-actions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.reasoning-action-item {
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+  transition: all 0.2s;
+}
+
+.reasoning-action-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 10px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  color: #94a3b8;
+  user-select: none;
+}
+
+.reasoning-action-row:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: #f1f5f9;
+}
+
+.reasoning-action-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.action-icon-term {
+  color: #10b981;
+}
+
+.action-icon-web {
+  color: #38bdf8;
+}
+
+.action-icon-file {
+  color: #f59e0b;
+}
+
+.reasoning-action-title {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.78rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.reasoning-action-status {
+  font-size: 0.72rem;
+  color: #38bdf8;
+  font-style: italic;
+}
+
+.reasoning-action-chevron {
+  color: #64748b;
+}
+
+.reasoning-action-output {
+  padding: 8px 10px;
+  background: rgba(0, 0, 0, 0.5);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.74rem;
   color: #94a3b8;
   max-height: 120px;
   overflow-y: auto;
   white-space: pre-wrap;
-  word-break: break-all;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* ==========================================================================
+   TOKEN TRACKER BADGE & METRIC PILL
+   ========================================================================== */
+
+.token-meta-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.token-pill-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  font-size: 0.72rem;
+  color: #64748b;
+  user-select: none;
+  transition: all 0.2s ease;
+  cursor: default;
+}
+
+.token-pill-badge:hover {
+  background: rgba(0, 229, 255, 0.06);
+  border-color: rgba(0, 229, 255, 0.25);
+  color: #94a3b8;
+  box-shadow: 0 0 8px rgba(0, 229, 255, 0.1);
+}
+
+.token-cpu-icon {
+  color: #38bdf8;
+  opacity: 0.8;
+}
+
+.token-count-text {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 500;
+}
+
+.token-dur-text {
+  font-family: 'JetBrains Mono', monospace;
+  opacity: 0.8;
 }
 
 /* ==========================================================================
