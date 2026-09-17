@@ -542,8 +542,9 @@ async def chat_stream(req: ChatRequest):
                 full_reply = ""
                 full_thought = ""
                 in_thought_tag = False
+                buffer = ""
                 
-                for chunk in llm.stream(messages):
+                async for chunk in llm.astream(messages):
                     reasoning_chunk = (
                         getattr(chunk, "additional_kwargs", {}).get("reasoning_content")
                         or getattr(chunk, "additional_kwargs", {}).get("reasoning")
@@ -555,31 +556,61 @@ async def chat_stream(req: ChatRequest):
                         full_thought += reasoning_chunk
                         yield f"data: {json.dumps({'type': 'thought', 'agent': 'Model', 'delta': reasoning_chunk})}\n\n"
                     
-                    if "<think>" in content_chunk:
-                        in_thought_tag = True
-                        parts = content_chunk.split("<think>")
-                        if parts[0]:
-                            full_reply += parts[0]
-                            yield f"data: {json.dumps({'type': 'content', 'delta': parts[0]})}\n\n"
-                        if len(parts) > 1:
-                            content_chunk = parts[1]
-                            
+                    if content_chunk:
+                        buffer += content_chunk
+                        while buffer:
+                            if not in_thought_tag:
+                                idx = buffer.find("<think>")
+                                if idx != -1:
+                                    before = buffer[:idx]
+                                    if before:
+                                        full_reply += before
+                                        yield f"data: {json.dumps({'type': 'content', 'delta': before})}\n\n"
+                                    in_thought_tag = True
+                                    buffer = buffer[idx + 7:]
+                                else:
+                                    last_lt = buffer.rfind("<")
+                                    if last_lt != -1 and "<think>".startswith(buffer[last_lt:]):
+                                        before = buffer[:last_lt]
+                                        if before:
+                                            full_reply += before
+                                            yield f"data: {json.dumps({'type': 'content', 'delta': before})}\n\n"
+                                        buffer = buffer[last_lt:]
+                                        break
+                                    else:
+                                        full_reply += buffer
+                                        yield f"data: {json.dumps({'type': 'content', 'delta': buffer})}\n\n"
+                                        buffer = ""
+                            else:
+                                idx = buffer.find("</think>")
+                                if idx != -1:
+                                    inside = buffer[:idx]
+                                    if inside:
+                                        full_thought += inside
+                                        yield f"data: {json.dumps({'type': 'thought', 'agent': 'Model', 'delta': inside})}\n\n"
+                                    in_thought_tag = False
+                                    buffer = buffer[idx + 8:]
+                                else:
+                                    last_lt = buffer.rfind("<")
+                                    if last_lt != -1 and "</think>".startswith(buffer[last_lt:]):
+                                        inside = buffer[:last_lt]
+                                        if inside:
+                                            full_thought += inside
+                                            yield f"data: {json.dumps({'type': 'thought', 'agent': 'Model', 'delta': inside})}\n\n"
+                                        buffer = buffer[last_lt:]
+                                        break
+                                    else:
+                                        full_thought += buffer
+                                        yield f"data: {json.dumps({'type': 'thought', 'agent': 'Model', 'delta': buffer})}\n\n"
+                                        buffer = ""
+
+                if buffer:
                     if in_thought_tag:
-                        if "</think>" in content_chunk:
-                            t_parts = content_chunk.split("</think>")
-                            full_thought += t_parts[0]
-                            yield f"data: {json.dumps({'type': 'thought', 'agent': 'Model', 'delta': t_parts[0]})}\n\n"
-                            in_thought_tag = False
-                            if len(t_parts) > 1 and t_parts[1]:
-                                full_reply += t_parts[1]
-                                yield f"data: {json.dumps({'type': 'content', 'delta': t_parts[1]})}\n\n"
-                        else:
-                            full_thought += content_chunk
-                            yield f"data: {json.dumps({'type': 'thought', 'agent': 'Model', 'delta': content_chunk})}\n\n"
+                        full_thought += buffer
+                        yield f"data: {json.dumps({'type': 'thought', 'agent': 'Model', 'delta': buffer})}\n\n"
                     else:
-                        if content_chunk:
-                            full_reply += content_chunk
-                            yield f"data: {json.dumps({'type': 'content', 'delta': content_chunk})}\n\n"
+                        full_reply += buffer
+                        yield f"data: {json.dumps({'type': 'content', 'delta': buffer})}\n\n"
 
                 duration = round(time.time() - start_time, 2)
                 
@@ -632,54 +663,78 @@ async def chat_stream(req: ChatRequest):
                 collected_thoughts = []
                 final_reply = ""
                 
-                for step in compiled_app.stream(inputs, config=config):
-                    if "__interrupt__" in step:
-                        int_obj = step["__interrupt__"][0]
-                        interrupt_val = int_obj.value if hasattr(int_obj, "value") else int_obj
-                        yield f"data: {json.dumps({'type': 'interrupt', 'interrupt': interrupt_val})}\n\n"
-                        return
+                from starlette.concurrency import iterate_in_threadpool
+                
+                in_thought_tag = False
+                buffer = ""
 
-                    node_name = list(step.keys())[0]
-                    node_out = step[node_name]
-                    
-                    next_target = node_out.get("next")
-                    messages = node_out.get("messages", [])
-                    
-                    for m in messages:
-                        if isinstance(m, AIMessage):
-                            r_content = (
-                                getattr(m, "additional_kwargs", {}).get("reasoning_content") or
-                                (m.response_metadata.get("message", {}).get("reasoning_content") if hasattr(m, "response_metadata") else None)
-                            )
-                            if r_content:
-                                yield f"data: {json.dumps({'type': 'thought', 'agent': node_name, 'content': r_content.strip()})}\n\n"
-                                collected_thoughts.append(f"⚡ **Thinking · {node_name}**:\n{r_content.strip()}")
+                async for mode, payload in iterate_in_threadpool(compiled_app.stream(inputs, config=config, stream_mode=["messages", "updates"])):
+                    if mode == "messages":
+                        msg_chunk, metadata = payload
+                        node_name = metadata.get("langgraph_node", "Model")
+                        
+                        if node_name == "Supervisor":
+                            pass # Supervisor returns JSON, streaming it token-by-token is tricky, better to just emit at the end.
+                        else:
+                            # Stream tokens for worker agents as 'thought'
+                            content_chunk = msg_chunk.content if isinstance(msg_chunk.content, str) else ""
+                            reasoning_chunk = (
+                                getattr(msg_chunk, "additional_kwargs", {}).get("reasoning_content") or
+                                (msg_chunk.response_metadata.get("message", {}).get("reasoning_content") if hasattr(msg_chunk, "response_metadata") else None)
+                            ) or ""
+                            
+                            if reasoning_chunk:
+                                yield f"data: {json.dumps({'type': 'thought', 'agent': node_name, 'delta': reasoning_chunk})}\n\n"
+                                
+                            if content_chunk:
+                                yield f"data: {json.dumps({'type': 'thought', 'agent': node_name, 'delta': content_chunk})}\n\n"
 
-                            content_str = str(m.content).strip() if m.content else ""
-                            if content_str.startswith("⚡ **Thinking"):
-                                t_text = content_str.split(":\n", 1)[-1] if ":\n" in content_str else content_str
-                                if not r_content or t_text.strip() != r_content.strip():
-                                    yield f"data: {json.dumps({'type': 'thought', 'agent': node_name, 'content': t_text})}\n\n"
-                                    collected_thoughts.append(content_str)
-                            elif getattr(m, "tool_calls", None):
-                                for tc in m.tool_calls:
-                                    t_name = tc.get("name", "tool")
-                                    yield f"data: {json.dumps({'type': 'tool', 'name': t_name, 'status': 'running...'})}\n\n"
-                            elif next_target == "FINISH" and content_str:
-                                final_reply = content_str
-                                yield f"data: {json.dumps({'type': 'content', 'delta': content_str})}\n\n"
-                            elif content_str and node_name != "Supervisor":
-                                yield f"data: {json.dumps({'type': 'thought', 'agent': node_name, 'content': content_str})}\n\n"
-                                collected_thoughts.append(f"⚡ **Thinking · {node_name}**:\n{content_str}")
+                    elif mode == "updates":
+                        step = payload
+                        if "__interrupt__" in step:
+                            int_obj = step["__interrupt__"][0]
+                            interrupt_val = int_obj.value if hasattr(int_obj, "value") else int_obj
+                            yield f"data: {json.dumps({'type': 'interrupt', 'interrupt': interrupt_val})}\n\n"
+                            return
 
-                        elif isinstance(m, ToolMessage):
-                            tool_name = getattr(m, "name", "tool")
-                            tool_output = str(m.content)[:250] + ("..." if len(str(m.content)) > 250 else "")
-                            yield f"data: {json.dumps({'type': 'tool', 'name': tool_name, 'status': 'done', 'content': tool_output})}\n\n"
-                            collected_thoughts.append(f"🔧 **Tool executed ({tool_name})**:\n```\n{tool_output}\n```")
-                    
-                    if next_target and next_target != "FINISH":
-                        yield f"data: {json.dumps({'type': 'status', 'text': f'⚡ Delegating to {next_target}...'})}\n\n"
+                        node_name = list(step.keys())[0]
+                        node_out = step[node_name]
+                        
+                        next_target = node_out.get("next")
+                        messages = node_out.get("messages", [])
+                        
+                        for m in messages:
+                            if isinstance(m, AIMessage):
+                                r_content = (
+                                    getattr(m, "additional_kwargs", {}).get("reasoning_content") or
+                                    (m.response_metadata.get("message", {}).get("reasoning_content") if hasattr(m, "response_metadata") else None)
+                                )
+                                if r_content:
+                                    collected_thoughts.append(f"⚡ **Thinking · {node_name}**:\n{r_content.strip()}")
+
+                                content_str = str(m.content).strip() if m.content else ""
+                                if content_str.startswith("⚡ **Thinking"):
+                                    t_text = content_str.split(":\n", 1)[-1] if ":\n" in content_str else content_str
+                                    if not r_content or t_text.strip() != r_content.strip():
+                                        collected_thoughts.append(content_str)
+                                elif getattr(m, "tool_calls", None):
+                                    for tc in m.tool_calls:
+                                        t_name = tc.get("name", "tool")
+                                        yield f"data: {json.dumps({'type': 'tool', 'name': t_name, 'status': 'running...'})}\n\n"
+                                elif next_target == "FINISH" and content_str:
+                                    final_reply = content_str
+                                    yield f"data: {json.dumps({'type': 'content', 'delta': content_str})}\n\n"
+                                elif content_str and node_name != "Supervisor":
+                                    collected_thoughts.append(f"⚡ **Thinking · {node_name}**:\n{content_str}")
+
+                            elif isinstance(m, ToolMessage):
+                                tool_name = getattr(m, "name", "tool")
+                                tool_output = str(m.content)[:250] + ("..." if len(str(m.content)) > 250 else "")
+                                yield f"data: {json.dumps({'type': 'tool', 'name': tool_name, 'status': 'done', 'content': tool_output})}\n\n"
+                                collected_thoughts.append(f"🔧 **Tool executed ({tool_name})**:\n```\n{tool_output}\n```")
+                        
+                        if next_target and next_target != "FINISH":
+                            yield f"data: {json.dumps({'type': 'status', 'text': f'⚡ Delegating to {next_target}...'})}\n\n"
                 
                 duration = round(time.time() - start_time, 2)
                 thinking_trace = "\n\n---\n\n".join(collected_thoughts) if collected_thoughts else (
@@ -735,54 +790,69 @@ async def chat_resume(req: ResumeRequest):
                 "reason": req.reason or ""
             }
 
-            for step in compiled_app.stream(Command(resume=resume_payload), config=config):
-                if "__interrupt__" in step:
-                    int_obj = step["__interrupt__"][0]
-                    interrupt_val = int_obj.value if hasattr(int_obj, "value") else int_obj
-                    yield f"data: {json.dumps({'type': 'interrupt', 'interrupt': interrupt_val})}\n\n"
-                    return
+            from starlette.concurrency import iterate_in_threadpool
 
-                node_name = list(step.keys())[0]
-                node_out = step[node_name]
+            async for mode, payload in iterate_in_threadpool(compiled_app.stream(Command(resume=resume_payload), config=config, stream_mode=["messages", "updates"])):
+                if mode == "messages":
+                    msg_chunk, metadata = payload
+                    node_name = metadata.get("langgraph_node", "Model")
+                    if node_name != "Supervisor":
+                        content_chunk = msg_chunk.content if isinstance(msg_chunk.content, str) else ""
+                        reasoning_chunk = (
+                            getattr(msg_chunk, "additional_kwargs", {}).get("reasoning_content") or
+                            (msg_chunk.response_metadata.get("message", {}).get("reasoning_content") if hasattr(msg_chunk, "response_metadata") else None)
+                        ) or ""
+                        if reasoning_chunk:
+                            yield f"data: {json.dumps({'type': 'thought', 'agent': node_name, 'delta': reasoning_chunk})}\n\n"
+                        if content_chunk:
+                            yield f"data: {json.dumps({'type': 'thought', 'agent': node_name, 'delta': content_chunk})}\n\n"
 
-                next_target = node_out.get("next")
-                messages = node_out.get("messages", [])
+                elif mode == "updates":
+                    step = payload
+                    if "__interrupt__" in step:
+                        int_obj = step["__interrupt__"][0]
+                        interrupt_val = int_obj.value if hasattr(int_obj, "value") else int_obj
+                        yield f"data: {json.dumps({'type': 'interrupt', 'interrupt': interrupt_val})}\n\n"
+                        return
 
-                for m in messages:
-                    if isinstance(m, AIMessage):
-                        r_content = (
-                            getattr(m, "additional_kwargs", {}).get("reasoning_content") or
-                            (m.response_metadata.get("message", {}).get("reasoning_content") if hasattr(m, "response_metadata") else None)
-                        )
-                        if r_content:
-                            yield f"data: {json.dumps({'type': 'thought', 'agent': node_name, 'content': r_content.strip()})}\n\n"
-                            collected_thoughts.append(f"⚡ **Thinking · {node_name}**:\n{r_content.strip()}")
+                    node_name = list(step.keys())[0]
+                    node_out = step[node_name]
 
-                        content_str = str(m.content).strip() if m.content else ""
-                        if content_str.startswith("⚡ **Thinking"):
-                            t_text = content_str.split(":\n", 1)[-1] if ":\n" in content_str else content_str
-                            if not r_content or t_text.strip() != r_content.strip():
-                                yield f"data: {json.dumps({'type': 'thought', 'agent': node_name, 'content': t_text})}\n\n"
-                                collected_thoughts.append(content_str)
-                        elif getattr(m, "tool_calls", None):
-                            for tc in m.tool_calls:
-                                t_name = tc.get("name", "tool")
-                                yield f"data: {json.dumps({'type': 'tool', 'name': t_name, 'status': 'running...'})}\n\n"
-                        elif next_target == "FINISH" and content_str:
-                            final_reply = content_str
-                            yield f"data: {json.dumps({'type': 'content', 'delta': content_str})}\n\n"
-                        elif content_str and node_name != "Supervisor":
-                            yield f"data: {json.dumps({'type': 'thought', 'agent': node_name, 'content': content_str})}\n\n"
-                            collected_thoughts.append(f"⚡ **Thinking · {node_name}**:\n{content_str}")
+                    next_target = node_out.get("next")
+                    messages = node_out.get("messages", [])
 
-                    elif isinstance(m, ToolMessage):
-                        tool_name = getattr(m, "name", "tool")
-                        tool_output = str(m.content)[:250] + ("..." if len(str(m.content)) > 250 else "")
-                        yield f"data: {json.dumps({'type': 'tool', 'name': tool_name, 'status': 'done', 'content': tool_output})}\n\n"
-                        collected_thoughts.append(f"🔧 **Tool executed ({tool_name})**:\n```\n{tool_output}\n```")
+                    for m in messages:
+                        if isinstance(m, AIMessage):
+                            r_content = (
+                                getattr(m, "additional_kwargs", {}).get("reasoning_content") or
+                                (m.response_metadata.get("message", {}).get("reasoning_content") if hasattr(m, "response_metadata") else None)
+                            )
+                            if r_content:
+                                collected_thoughts.append(f"⚡ **Thinking · {node_name}**:\n{r_content.strip()}")
 
-                if next_target and next_target != "FINISH":
-                    yield f"data: {json.dumps({'type': 'status', 'text': f'⚡ Delegating to {next_target}...'})}\n\n"
+                            content_str = str(m.content).strip() if m.content else ""
+                            if content_str.startswith("⚡ **Thinking"):
+                                t_text = content_str.split(":\n", 1)[-1] if ":\n" in content_str else content_str
+                                if not r_content or t_text.strip() != r_content.strip():
+                                    collected_thoughts.append(content_str)
+                            elif getattr(m, "tool_calls", None):
+                                for tc in m.tool_calls:
+                                    t_name = tc.get("name", "tool")
+                                    yield f"data: {json.dumps({'type': 'tool', 'name': t_name, 'status': 'running...'})}\n\n"
+                            elif next_target == "FINISH" and content_str:
+                                final_reply = content_str
+                                yield f"data: {json.dumps({'type': 'content', 'delta': content_str})}\n\n"
+                            elif content_str and node_name != "Supervisor":
+                                collected_thoughts.append(f"⚡ **Thinking · {node_name}**:\n{content_str}")
+
+                        elif isinstance(m, ToolMessage):
+                            tool_name = getattr(m, "name", "tool")
+                            tool_output = str(m.content)[:250] + ("..." if len(str(m.content)) > 250 else "")
+                            yield f"data: {json.dumps({'type': 'tool', 'name': tool_name, 'status': 'done', 'content': tool_output})}\n\n"
+                            collected_thoughts.append(f"🔧 **Tool executed ({tool_name})**:\n```\n{tool_output}\n```")
+
+                    if next_target and next_target != "FINISH":
+                        yield f"data: {json.dumps({'type': 'status', 'text': f'⚡ Delegating to {next_target}...'})}\n\n"
 
             duration = round(time.time() - start_time, 2)
             thinking_trace = "\n\n---\n\n".join(collected_thoughts) if collected_thoughts else None

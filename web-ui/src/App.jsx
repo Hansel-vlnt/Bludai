@@ -154,8 +154,9 @@ function App() {
                 streamThoughts.push({ agent: event.agent || 'Agent', content: event.content });
                 setLiveThoughts([...streamThoughts]);
               } else if (event.delta) {
-                if (streamThoughts.length === 0) {
-                  streamThoughts.push({ agent: event.agent || 'Model', content: event.delta });
+                const currentAgent = event.agent || 'Model';
+                if (streamThoughts.length === 0 || streamThoughts[streamThoughts.length - 1].agent !== currentAgent) {
+                  streamThoughts.push({ agent: currentAgent, content: event.delta });
                 } else {
                   streamThoughts[streamThoughts.length - 1].content += event.delta;
                 }
