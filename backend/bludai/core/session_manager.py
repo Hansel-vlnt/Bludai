@@ -27,6 +27,7 @@ class SessionManager:
                 INSERT INTO sessions (thread_id, title, mode, updated_at)
                 VALUES (?, ?, ?, ?)
                 ON CONFLICT(thread_id) DO UPDATE SET
+                    mode=coalesce(excluded.mode, sessions.mode),
                     updated_at=excluded.updated_at
             ''', (thread_id, title, mode, now))
             
@@ -36,6 +37,19 @@ class SessionManager:
             conn.execute('''
                 UPDATE sessions SET updated_at = ? WHERE thread_id = ?
             ''', (now, thread_id))
+
+    def update_session(self, thread_id: str, mode: str = None, title: str = None):
+        now = datetime.datetime.now().isoformat()
+        with sqlite3.connect(self.db_path) as conn:
+            if mode and title:
+                conn.execute('UPDATE sessions SET mode = ?, title = ?, updated_at = ? WHERE thread_id = ?', (mode, title, now, thread_id))
+            elif mode:
+                conn.execute('UPDATE sessions SET mode = ?, updated_at = ? WHERE thread_id = ?', (mode, now, thread_id))
+            elif title:
+                conn.execute('UPDATE sessions SET title = ?, updated_at = ? WHERE thread_id = ?', (title, now, thread_id))
+            else:
+                conn.execute('UPDATE sessions SET updated_at = ? WHERE thread_id = ?', (now, thread_id))
+
             
     def get_sessions(self, limit=20):
         with sqlite3.connect(self.db_path) as conn:

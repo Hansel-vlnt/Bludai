@@ -100,16 +100,20 @@ function App() {
 
   const loadSession = async (threadId, sessionMode) => {
     setCurrentThread(threadId);
-    if(sessionMode) setMode(sessionMode);
+    if (sessionMode) setMode(sessionMode);
     
     try {
       const res = await fetch(`${API_BASE}/sessions/${threadId}/history`);
       const data = await res.json();
       setMessages(data.messages || []);
+      if (data.mode) {
+        setMode(data.mode);
+      }
     } catch (err) {
       console.error("Failed to fetch session history", err);
     }
   };
+
 
   const handleNewChat = () => {
     const newThread = Math.random().toString(36).substring(2, 15);
@@ -429,6 +433,21 @@ function App() {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {mode === 'role' ? (
+              <span 
+                className="mode-indicator-pill role" 
+                title="Role Mode: Autonomous Supervisor orchestrating specialized agents (Developer, Executor, Researcher, etc.)"
+              >
+                ⚡ Multi-Agent Workplace
+              </span>
+            ) : (
+              <span 
+                className="mode-indicator-pill basic" 
+                title="Basic Mode: Direct single-model streaming with live search and zero agent overhead"
+              >
+                💬 Direct Chat (Basic)
+              </span>
+            )}
             <button
               onClick={() => setShowWorkplace(true)}
               style={{
@@ -560,10 +579,35 @@ function App() {
               selectedModel={selectedModel}
               setSelectedModel={setSelectedModel}
               availableModels={availableModels}
-              label={mode === 'role' ? 'Agent Model' : 'Direct Model'}
+              label={mode === 'role' ? 'Supervisor Model' : 'Chat Model'}
               onRefresh={() => fetchModels(true)}
               isRefreshing={isRefreshingModels}
             />
+            {mode === 'role' && (
+              <button
+                type="button"
+                onClick={() => setShowWorkplace(true)}
+                style={{
+                  background: 'rgba(0, 229, 255, 0.05)',
+                  border: '1px dashed rgba(0, 229, 255, 0.3)',
+                  borderRadius: '6px',
+                  color: '#00E5FF',
+                  padding: '5px 10px',
+                  fontSize: '0.75rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  transition: 'all 0.2s ease'
+                }}
+                title="Configure custom models and tools for workplace specialists (Developer, Executor, etc.)"
+                onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(0, 229, 255, 0.12)'; }}
+                onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(0, 229, 255, 0.05)'; }}
+              >
+                <Users size={12} />
+                <span>Specialist Agents Roster</span>
+              </button>
+            )}
           </div>
           
           <div className="input-box glass-panel">

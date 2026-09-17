@@ -106,6 +106,9 @@ def recompile_graph():
 
 class DynamicGraphProxy:
     """Proxy object ensuring callers always execute against the latest dynamically compiled graph."""
+    def __getattr__(self, name):
+        return getattr(get_graph(), name)
+
     def invoke(self, *args, **kwargs):
         return get_graph().invoke(*args, **kwargs)
         
@@ -116,3 +119,4 @@ class DynamicGraphProxy:
         return get_graph().astream(*args, **kwargs)
 
 app = DynamicGraphProxy()
+

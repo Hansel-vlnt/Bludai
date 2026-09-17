@@ -296,8 +296,12 @@ def get_session_history(thread_id: str):
     checkpointer = get_checkpointer()
     config = {"configurable": {"thread_id": thread_id}}
     state = checkpointer.get(config)
+    session = session_manager.get_session(thread_id)
+    session_mode = session.get("mode", "role") if session else "role"
+    session_title = session.get("title", "") if session else ""
+
     if not state:
-        return {"messages": []}
+        return {"messages": [], "mode": session_mode, "title": session_title}
         
     messages = state["channel_values"].get("messages", [])
     
@@ -307,12 +311,19 @@ def get_session_history(thread_id: str):
             formatted_msgs.append({"role": "user", "content": msg.content})
         elif isinstance(msg, AIMessage):
             if msg.content:
-                formatted_msgs.append({"role": "assistant", "content": msg.content})
+                thinking = (
+                    getattr(msg, "additional_kwargs", {}).get("reasoning_content") or
+                    (msg.response_metadata.get("message", {}).get("reasoning_content") if hasattr(msg, "response_metadata") and msg.response_metadata else None)
+                )
+                item = {"role": "assistant", "content": msg.content}
+                if thinking:
+                    item["thinking"] = thinking
+                formatted_msgs.append(item)
         elif isinstance(msg, ToolMessage):
             # Optionally include tool messages for UI transparency
             formatted_msgs.append({"role": "system", "content": f"🔧 Tool Executed: {msg.name}\n{msg.content}"})
             
-    return {"messages": formatted_msgs}
+    return {"messages": formatted_msgs, "mode": session_mode, "title": session_title}
 
 @app.post("/api/chat")
 def chat(req: ChatRequest):
@@ -325,7 +336,7 @@ def chat(req: ChatRequest):
         title = req.message[:30] + ("..." if len(req.message) > 30 else "")
         session_manager.create_or_update_session(req.thread_id, title, req.mode)
     else:
-        session_manager.update_timestamp(req.thread_id)
+        session_manager.update_session(req.thread_id, mode=req.mode)
 
     inputs = {
         "messages": [HumanMessage(content=req.message)],
@@ -455,7 +466,7 @@ async def chat_stream(req: ChatRequest):
         title = req.message[:30] + ("..." if len(req.message) > 30 else "")
         session_manager.create_or_update_session(req.thread_id, title, req.mode)
     else:
-        session_manager.update_timestamp(req.thread_id)
+        session_manager.update_session(req.thread_id, mode=req.mode)
 
     inputs = {
         "messages": [HumanMessage(content=req.message)],
@@ -472,6 +483,7 @@ async def chat_stream(req: ChatRequest):
             if req.mode == "basic":
                 from bludai.core.llm_client import get_llm_client
                 from bludai.tools.web_tools import web_search
+                from bludai.core.graph_basic import basic_app
                 
                 model_id = req.basic_model or models_manager.get_best_default_model()
                 llm = get_llm_client(model_id=model_id, temperature=req.temperature)
@@ -513,7 +525,19 @@ async def chat_stream(req: ChatRequest):
                 if custom_rules:
                     system_instruction = f"{system_instruction}\n\n{custom_rules}"
 
-                messages = [SystemMessage(content=system_instruction), HumanMessage(content=req.message)]
+                # Retrieve conversation history from checkpointer to preserve multi-turn memory
+                existing_messages = state["channel_values"].get("messages", []) if state else []
+                history_to_send = []
+                for m in existing_messages:
+                    if isinstance(m, HumanMessage) and m.content:
+                        history_to_send.append(HumanMessage(content=m.content))
+                    elif isinstance(m, AIMessage) and m.content:
+                        content_str = str(m.content).strip()
+                        # Skip intermediate thoughts from multi-agent turns
+                        if not content_str.startswith("⚡ **Thinking"):
+                            history_to_send.append(AIMessage(content=content_str))
+
+                messages = [SystemMessage(content=system_instruction)] + history_to_send + [HumanMessage(content=req.message)]
 
                 full_reply = ""
                 full_thought = ""
@@ -575,9 +599,23 @@ async def chat_stream(req: ChatRequest):
                     )
                     thinking_formatted = f"⚡ **Thinking · Model**:\n{thought_summary}"
 
-                in_tokens = max(1, (len(req.message) + (len(custom_rules) if custom_rules else 0)) // 4)
+                # Calculate tokens including conversation context
+                in_tokens = max(1, sum(len(str(m.content)) for m in messages) // 4)
                 out_tokens = max(1, (len(full_reply) + len(full_thought)) // 4)
-                yield f"data: {json.dumps({'type': 'done', 'reply': full_reply, 'thinking': thinking_formatted, 'duration': duration, 'tokens': {'input': in_tokens, 'output': out_tokens, 'total': in_tokens + out_tokens}})}\n\n"
+                tokens = {'input': in_tokens, 'output': out_tokens, 'total': in_tokens + out_tokens}
+
+                # Persist turn into checkpointer to maintain multi-turn context
+                try:
+                    ai_kwargs = {}
+                    if full_thought.strip():
+                        ai_kwargs["reasoning_content"] = full_thought.strip()
+                    persisted_ai_msg = AIMessage(content=full_reply, additional_kwargs=ai_kwargs)
+                    basic_app.update_state(config, {"messages": [HumanMessage(content=req.message), persisted_ai_msg]})
+                except Exception as save_err:
+                    print(f"[Error saving basic mode state to checkpointer]: {save_err}")
+
+                yield f"data: {json.dumps({'type': 'done', 'reply': full_reply, 'thinking': thinking_formatted, 'duration': duration, 'tokens': tokens})}\n\n"
+
 
             else:
                 # Role Mode streaming

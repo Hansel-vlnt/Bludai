@@ -192,6 +192,29 @@ body {
   box-shadow: 0 2px 8px rgba(0,0,0,0.2);
 }
 
+.mode-indicator-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.mode-indicator-pill.role {
+  background: rgba(0, 229, 255, 0.08);
+  color: #00e5ff;
+  border: 1px solid rgba(0, 229, 255, 0.25);
+}
+
+.mode-indicator-pill.basic {
+  background: rgba(16, 185, 129, 0.08);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
 .chat-container {
   flex: 1;
   overflow-y: auto;
