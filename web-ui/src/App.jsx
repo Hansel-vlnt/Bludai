@@ -380,7 +380,7 @@ function App() {
   };
 
   return (
-    <div className="app-container">
+    <div className="flex w-full h-full bg-bg text-primary font-sans">
       {showSettings && (
         <SettingsModal 
           onClose={() => setShowSettings(false)} 

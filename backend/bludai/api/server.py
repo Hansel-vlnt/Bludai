@@ -427,10 +427,12 @@ def chat(req: ChatRequest):
                 elif isinstance(msg, AIMessage) and msg.content:
                     content_str = str(msg.content).strip()
                     agent = msg.additional_kwargs.get("agent")
-                    if content_str.startswith("⚡ **Thinking"):
-                        intermediate_trace.append(content_str)
-                    elif agent:
-                        intermediate_trace.append(f"⚡ **Thinking · {agent}**:\n{content_str}")
+                    is_thought = msg.additional_kwargs.get("is_thought", False)
+                    if is_thought:
+                        if agent:
+                            intermediate_trace.append(f"⚡ **Thinking · {agent}**:\n{content_str}")
+                        else:
+                            intermediate_trace.append(f"⚡ **Thinking · Agent**:\n{content_str}")
                     else:
                         intermediate_trace.append(f"⚡ **Thinking · Agent**:\n{content_str}")
 
@@ -438,7 +440,7 @@ def chat(req: ChatRequest):
             
             # In role mode, return the last AI message as reply
             for msg in reversed(final_messages):
-                if isinstance(msg, AIMessage) and msg.content and not str(msg.content).strip().startswith("⚡ **Thinking"):
+                if isinstance(msg, AIMessage) and msg.content and not msg.additional_kwargs.get("is_thought", False):
                     return {
                         "reply": msg.content, 
                         "role": "assistant", 
@@ -534,7 +536,8 @@ async def chat_stream(req: ChatRequest):
                     elif isinstance(m, AIMessage) and m.content:
                         content_str = str(m.content).strip()
                         # Skip intermediate thoughts from multi-agent turns
-                        if not content_str.startswith("⚡ **Thinking"):
+                        is_thought = m.additional_kwargs.get("is_thought", False)
+                        if not is_thought:
                             history_to_send.append(AIMessage(content=content_str))
 
                 messages = [SystemMessage(content=system_instruction)] + history_to_send + [HumanMessage(content=req.message)]
@@ -713,10 +716,10 @@ async def chat_stream(req: ChatRequest):
                                     collected_thoughts.append(f"⚡ **Thinking · {node_name}**:\n{r_content.strip()}")
 
                                 content_str = str(m.content).strip() if m.content else ""
-                                if content_str.startswith("⚡ **Thinking"):
-                                    t_text = content_str.split(":\n", 1)[-1] if ":\n" in content_str else content_str
-                                    if not r_content or t_text.strip() != r_content.strip():
-                                        collected_thoughts.append(content_str)
+                                is_thought = m.additional_kwargs.get("is_thought", False)
+                                if is_thought:
+                                    if not r_content or content_str.strip() != r_content.strip():
+                                        collected_thoughts.append(f"⚡ **Thinking · {node_name}**:\n{content_str}")
                                 elif getattr(m, "tool_calls", None):
                                     for tc in m.tool_calls:
                                         t_name = tc.get("name", "tool")
@@ -724,8 +727,6 @@ async def chat_stream(req: ChatRequest):
                                 elif next_target == "FINISH" and content_str:
                                     final_reply = content_str
                                     yield f"data: {json.dumps({'type': 'content', 'delta': content_str})}\n\n"
-                                elif content_str and node_name != "Supervisor":
-                                    collected_thoughts.append(f"⚡ **Thinking · {node_name}**:\n{content_str}")
 
                             elif isinstance(m, ToolMessage):
                                 tool_name = getattr(m, "name", "tool")
@@ -831,10 +832,10 @@ async def chat_resume(req: ResumeRequest):
                                 collected_thoughts.append(f"⚡ **Thinking · {node_name}**:\n{r_content.strip()}")
 
                             content_str = str(m.content).strip() if m.content else ""
-                            if content_str.startswith("⚡ **Thinking"):
-                                t_text = content_str.split(":\n", 1)[-1] if ":\n" in content_str else content_str
-                                if not r_content or t_text.strip() != r_content.strip():
-                                    collected_thoughts.append(content_str)
+                            is_thought = m.additional_kwargs.get("is_thought", False)
+                            if is_thought:
+                                if not r_content or content_str.strip() != r_content.strip():
+                                    collected_thoughts.append(f"⚡ **Thinking · {node_name}**:\n{content_str}")
                             elif getattr(m, "tool_calls", None):
                                 for tc in m.tool_calls:
                                     t_name = tc.get("name", "tool")
@@ -842,8 +843,6 @@ async def chat_resume(req: ResumeRequest):
                             elif next_target == "FINISH" and content_str:
                                 final_reply = content_str
                                 yield f"data: {json.dumps({'type': 'content', 'delta': content_str})}\n\n"
-                            elif content_str and node_name != "Supervisor":
-                                collected_thoughts.append(f"⚡ **Thinking · {node_name}**:\n{content_str}")
 
                         elif isinstance(m, ToolMessage):
                             tool_name = getattr(m, "name", "tool")

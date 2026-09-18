@@ -1,5 +1,9 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
   --bg-color: #050505;
   --panel-bg: #0a0a0a;
@@ -23,7 +27,7 @@
 }
 
 body {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: 'Inter', sans-serif;
   background-color: var(--bg-color);
   color: var(--text-primary);
   height: 100vh;
@@ -254,8 +258,8 @@ body {
 }
 
 .message-wrapper.user .message-bubble {
-  background: linear-gradient(135deg, rgba(30, 58, 138, 0.4) 0%, rgba(17, 24, 39, 0.9) 100%);
-  border: 1px solid rgba(59, 130, 246, 0.35);
+  background: color-mix(in srgb, var(--accent-color) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-color) 40%, transparent);
   border-bottom-right-radius: 4px;
   color: #f8fafc;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);

@@ -1,7 +1,7 @@
 import sqlite3
 import os
 from langgraph.checkpoint.sqlite import SqliteSaver
-from langgraph.store.memory import InMemoryStore
+from langgraph.store.sqlite import SqliteStore
 
 DB_PATH = os.path.join(os.path.expanduser("~"), ".bludai_checkpoints.db")
 _conn = sqlite3.connect(DB_PATH, check_same_thread=False)
@@ -10,7 +10,8 @@ _conn = sqlite3.connect(DB_PATH, check_same_thread=False)
 _checkpointer = SqliteSaver(_conn)
 _checkpointer.setup()
 
-_store = InMemoryStore()
+_store = SqliteStore(_conn)
+_store.setup()
 
 def get_checkpointer():
     """Returns the checkpointer for thread-scoped short-term memory (Chat History)."""

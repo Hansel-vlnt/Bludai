@@ -4,11 +4,19 @@ from rich.console import Console
 
 console = Console()
 
+WORKSPACE_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../"))
+
+def _enforce_jail(filepath: str) -> str:
+    abs_path = os.path.abspath(filepath)
+    if not abs_path.startswith(WORKSPACE_ROOT):
+        raise PermissionError(f"Path traversal blocked: Cannot access paths outside of {WORKSPACE_ROOT}")
+    return abs_path
+
 @tool
 def create_file(filepath: str, content: str) -> str:
     """Creates a new file at the specified filepath with the given content."""
     try:
-        abs_path = os.path.abspath(filepath)
+        abs_path = _enforce_jail(filepath)
         os.makedirs(os.path.dirname(abs_path), exist_ok=True)
         with open(abs_path, 'w', encoding='utf-8') as f:
             f.write(content)
@@ -21,7 +29,7 @@ def create_file(filepath: str, content: str) -> str:
 def read_file(filepath: str) -> str:
     """Reads the contents of a file at the specified filepath."""
     try:
-        abs_path = os.path.abspath(filepath)
+        abs_path = _enforce_jail(filepath)
         if not os.path.exists(abs_path):
             return f"Error: File does not exist at {filepath}"
         with open(abs_path, 'r', encoding='utf-8', errors='ignore') as f:
@@ -37,7 +45,7 @@ def replace_content(filepath: str, old_content: str, new_content: str) -> str:
     The old_content must match exactly.
     """
     try:
-        abs_path = os.path.abspath(filepath)
+        abs_path = _enforce_jail(filepath)
         if not os.path.exists(abs_path):
             return f"Error: File does not exist at {filepath}"
             

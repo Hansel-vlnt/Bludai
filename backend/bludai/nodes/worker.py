@@ -48,6 +48,7 @@ def make_worker_node(agent_id: str) -> Callable[[AgentState], dict]:
         response = llm_with_tools.invoke(messages)
         if hasattr(response, "additional_kwargs"):
             response.additional_kwargs["agent"] = agent_name
+            response.additional_kwargs["is_thought"] = True
 
         return {
             "messages": [response]
