@@ -8,6 +8,8 @@ from bludai.core.skills_manager import skills_manager
 from bludai.core.settings_manager import settings_manager
 from bludai.core.state import AgentState
 from bludai.core.memory import get_store
+from bludai.core.telemetry import emit_semantic_event
+from langchain_core.runnables.config import RunnableConfig
 
 from bludai.core.agent_manager import agent_manager
 
@@ -127,8 +129,12 @@ def parse_supervisor_response(
         thought=extracted_thought or default_thought
     )
 
-def supervisor_node(state: AgentState) -> dict:
+def supervisor_node(state: AgentState, config: RunnableConfig = None) -> dict:
     """Orchestrator node that checks progress against the checklist and routes to workers."""
+    
+    # Extract thread ID from config for telemetry tracing
+    thread_id = config.get("configurable", {}).get("thread_id", "unknown_thread") if config else "unknown_thread"
+
     # Get 9Router client for this specific role
     llm = get_llm_client(role="Supervisor", temperature=state.get("temperature", 0.0))
     
@@ -267,6 +273,14 @@ You MUST respond with a JSON object conforming to this schema:
         # Append Supervisor's delegation instruction to direct the worker
         new_messages.append(SystemMessage(content=f"[Supervisor Instruction for {next_node}]: {instruction}"))
         
+    emit_semantic_event(
+        thread_id=thread_id,
+        event_type="agent_delegation",
+        node="Supervisor",
+        content=instruction,
+        metadata={"next_node": next_node, "updated_checklist": updated_checklist, "thought": response.thought}
+    )
+
     return {
         "messages": new_messages,
         "checklist": updated_checklist,

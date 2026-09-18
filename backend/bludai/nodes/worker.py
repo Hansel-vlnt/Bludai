@@ -4,19 +4,24 @@ from bludai.core.llm_client import get_llm_client
 from bludai.core.state import AgentState
 from bludai.core.agent_manager import agent_manager
 from bludai.tools.registry import resolve_tools
+from bludai.core.telemetry import emit_semantic_event
+
+from langchain_core.runnables.config import RunnableConfig
 
 def make_worker_node(agent_id: str) -> Callable[[AgentState], dict]:
     """
     Factory creating an autonomous LangGraph worker node for any dynamic agent.
     Binds the agent's specific tools, custom system prompt, and designated model.
     """
-    def worker_node(state: AgentState) -> dict:
+    def worker_node(state: AgentState, config: RunnableConfig = None) -> dict:
+        thread_id = config.get("configurable", {}).get("thread_id", "unknown_thread") if config else "unknown_thread"
         agent = agent_manager.get_agent(agent_id) or agent_manager.get_agent_by_name(agent_id)
         if not agent:
             # Fallback if agent was deleted or missing
             return {
                 "messages": [AIMessage(content=f"Agent '{agent_id}' is not configured in this workplace.")]
             }
+
 
         agent_name = agent.get("name", agent_id)
         system_prompt = agent.get("system_prompt", "You are a specialized worker agent.")
@@ -50,18 +55,27 @@ def make_worker_node(agent_id: str) -> Callable[[AgentState], dict]:
             response.additional_kwargs["agent"] = agent_name
             response.additional_kwargs["is_thought"] = True
 
+        emit_semantic_event(
+            thread_id=thread_id,
+            event_type="agent_thought",
+            node=agent_name,
+            content=str(response.content),
+            metadata={"tool_calls": getattr(response, "tool_calls", [])}
+        )
+
         return {
             "messages": [response]
         }
 
     return worker_node
 
-def execute_tools_node(state: AgentState) -> dict:
+def execute_tools_node(state: AgentState, config: RunnableConfig = None) -> dict:
     """
     Centralized tool execution node for dynamic workplace agents.
     Safely executes tool calls requested by the worker node, supporting
     LangGraph's native interrupt() mechanism for Human-in-the-Loop approvals.
     """
+    thread_id = config.get("configurable", {}).get("thread_id", "unknown_thread") if config else "unknown_thread"
     messages = state.get("messages", [])
     if not messages:
         return {"messages": []}
@@ -98,6 +112,14 @@ def execute_tools_node(state: AgentState) -> dict:
 
         tool_msg = ToolMessage(content=str(t_output), name=t_name, tool_call_id=t_id)
         tool_messages.append(tool_msg)
+
+        emit_semantic_event(
+            thread_id=thread_id,
+            event_type="tool_execution",
+            node="ToolExecutor",
+            content=str(t_output),
+            metadata={"tool_name": t_name, "args": t_args, "agent": agent_name}
+        )
 
     return {
         "messages": tool_messages

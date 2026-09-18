@@ -373,90 +373,62 @@ def chat(req: ChatRequest):
             reply = f"⚠️ **Model Execution Error**:\n\n```\n{err_msg}\n```"
         return {"reply": reply, "role": "assistant", "tokens": {"input": 0, "output": 0, "total": 0}}
 
-    if req.mode == "basic":
-        from bludai.core.graph_basic import basic_app
-        inputs["basic_model"] = req.basic_model or models_manager.get_best_default_model()
+    # Role mode
+    from bludai.core.graph import app as compiled_app
+    
+    checklist = ""
+    if state and "channel_values" in state:
+        checklist = state["channel_values"].get("checklist", "")
         
-        try:
-            result = basic_app.invoke(inputs, config=config)
-            final_messages = result.get("messages", [])
-            last_reply = final_messages[-1].content if final_messages else ""
-            tokens = extract_or_estimate_tokens(final_messages, initial_msg_count, prompt_text=req.message, reply_text=last_reply)
-            duration = round(time.time() - start_time, 2)
-            
-            if final_messages:
-                last_msg = final_messages[-1]
-                thinking = (
-                    last_msg.additional_kwargs.get("reasoning_content") or
-                    (last_msg.response_metadata.get("message", {}).get("reasoning_content") if hasattr(last_msg, "response_metadata") else None)
-                )
+    inputs["checklist"] = checklist
+    inputs["next"] = "Supervisor"
+    
+    try:
+        result = compiled_app.invoke(inputs, config=config)
+        final_messages = result.get("messages", [])
+        tokens = extract_or_estimate_tokens(final_messages, initial_msg_count, prompt_text=req.message)
+        duration = round(time.time() - start_time, 2)
+
+        # Build intermediate thought trace from multi-agent turns
+        intermediate_trace = []
+        turn_messages = final_messages[initial_msg_count:]
+        for msg in turn_messages[:-1]:
+            if isinstance(msg, ToolMessage):
+                tool_content = str(msg.content)[:250] + ("..." if len(str(msg.content)) > 250 else "")
+                intermediate_trace.append(f"🔧 **Tool executed ({msg.name})**:\n```\n{tool_content}\n```")
+            elif isinstance(msg, AIMessage) and msg.content:
+                content_str = str(msg.content).strip()
+                agent = msg.additional_kwargs.get("agent")
+                is_thought = msg.additional_kwargs.get("is_thought", False)
+                if is_thought:
+                    if agent:
+                        intermediate_trace.append(f"🧠 **Thinking — {agent}**:\n{content_str}")
+                    else:
+                        intermediate_trace.append(f"🧠 **Thinking — Agent**:\n{content_str}")
+                else:
+                    intermediate_trace.append(f"🧠 **Thinking — Agent**:\n{content_str}")
+
+        thinking_trace = "\n\n---\n\n".join(intermediate_trace) if intermediate_trace else None
+        
+        # In role mode, return the last AI message as reply
+        for msg in reversed(final_messages):
+            if isinstance(msg, AIMessage) and msg.content and not msg.additional_kwargs.get("is_thought", False):
                 return {
-                    "reply": last_msg.content, 
+                    "reply": msg.content, 
                     "role": "assistant", 
-                    "thinking": thinking,
+                    "thinking": thinking_trace,
                     "duration": duration,
                     "tokens": tokens
                 }
-            return {"reply": "", "role": "assistant", "duration": duration, "tokens": tokens}
-        except Exception as e:
-            return format_chat_error(e)
-    else:
-        # Role mode
-        from bludai.core.graph import app as compiled_app
-        
-        checklist = ""
-        if state and "channel_values" in state:
-            checklist = state["channel_values"].get("checklist", "")
-            
-        inputs["checklist"] = checklist
-        inputs["next"] = "Supervisor"
-        
-        try:
-            result = compiled_app.invoke(inputs, config=config)
-            final_messages = result.get("messages", [])
-            tokens = extract_or_estimate_tokens(final_messages, initial_msg_count, prompt_text=req.message)
-            duration = round(time.time() - start_time, 2)
-
-            # Build intermediate thought trace from multi-agent turns
-            intermediate_trace = []
-            turn_messages = final_messages[initial_msg_count:]
-            for msg in turn_messages[:-1]:
-                if isinstance(msg, ToolMessage):
-                    tool_content = str(msg.content)[:250] + ("..." if len(str(msg.content)) > 250 else "")
-                    intermediate_trace.append(f"🔧 **Tool executed ({msg.name})**:\n```\n{tool_content}\n```")
-                elif isinstance(msg, AIMessage) and msg.content:
-                    content_str = str(msg.content).strip()
-                    agent = msg.additional_kwargs.get("agent")
-                    is_thought = msg.additional_kwargs.get("is_thought", False)
-                    if is_thought:
-                        if agent:
-                            intermediate_trace.append(f"⚡ **Thinking · {agent}**:\n{content_str}")
-                        else:
-                            intermediate_trace.append(f"⚡ **Thinking · Agent**:\n{content_str}")
-                    else:
-                        intermediate_trace.append(f"⚡ **Thinking · Agent**:\n{content_str}")
-
-            thinking_trace = "\n\n---\n\n".join(intermediate_trace) if intermediate_trace else None
-            
-            # In role mode, return the last AI message as reply
-            for msg in reversed(final_messages):
-                if isinstance(msg, AIMessage) and msg.content and not msg.additional_kwargs.get("is_thought", False):
-                    return {
-                        "reply": msg.content, 
-                        "role": "assistant", 
-                        "thinking": thinking_trace,
-                        "duration": duration,
-                        "tokens": tokens
-                    }
-            return {
-                "reply": "Task completed.", 
-                "role": "assistant", 
-                "thinking": thinking_trace,
-                "duration": duration,
-                "tokens": tokens
-            }
-        except Exception as e:
-            return format_chat_error(e)
+        return {
+            "reply": "Task completed.", 
+            "role": "assistant", 
+            "thinking": thinking_trace,
+            "duration": duration,
+            "tokens": tokens
+        }
+    except Exception as e:
+        return format_chat_error(e)
 
 @app.post("/api/chat/stream")
 async def chat_stream(req: ChatRequest):
@@ -482,275 +454,104 @@ async def chat_stream(req: ChatRequest):
 
     async def event_generator():
         try:
-            if req.mode == "basic":
-                from bludai.core.llm_client import get_llm_client
-                from bludai.tools.web_tools import web_search
-                from bludai.core.graph_basic import basic_app
-                
-                model_id = req.basic_model or models_manager.get_best_default_model()
-                llm = get_llm_client(model_id=model_id, temperature=req.temperature)
-                model_display = model_id.split("/")[-1]
-                
-                yield f"data: {json.dumps({'type': 'status', 'text': f'Thinking with {model_display}...'})}\n\n"
-                
-                # Check if query benefits from real-time live internet search
-                search_keywords = ["search", "live", "internet", "browse", "web", "today", "latest", "recent", "news", "headline", "release", "cari", "terbaru", "berita", "rilis", "update"]
-                needs_search = any(k in req.message.lower() for k in search_keywords)
-                
-                search_context = ""
-                collected_basic_thoughts = []
-                
-                if needs_search:
-                    yield f"data: {json.dumps({'type': 'status', 'text': 'Searching live web in real-time...'})}\n\n"
-                    search_thought = f"Detected live information query. Querying live web search for: '{req.message}'."
-                    yield f"data: {json.dumps({'type': 'thought', 'agent': 'Model', 'content': search_thought})}\n\n"
-                    collected_basic_thoughts.append(f"• {search_thought}")
+            from bludai.core.graph import app as compiled_app
+            checklist = ""
+            if state and "channel_values" in state:
+                checklist = state["channel_values"].get("checklist", "")
                     
-                    try:
-                        search_results = web_search.invoke({"query": req.message})
-                        search_snippet = search_results[:250] + ("..." if len(search_results) > 250 else "")
-                        yield f"data: {json.dumps({'type': 'tool', 'name': 'web_search', 'status': 'done', 'content': search_snippet})}\n\n"
-                        collected_basic_thoughts.append(f"• Retrieved real-time web search results from live index.")
-                        search_context = f"\n\n[LIVE INTERNET SEARCH RESULTS]:\n{search_results}\n"
-                    except Exception as se:
-                        print(f"[WebSearch error in basic mode]: {se}")
-
-                system_instruction = (
-                    "You are Bludai, an intelligent AI assistant with live internet access.\n"
-                    "Provide clear, accurate, and direct responses. Use any provided live search results to answer current queries.\n"
-                    "Always structure your response with good formatting and actionable details."
-                )
-                if search_context:
-                    system_instruction += f"\n{search_context}\nUse the live search results above to answer the user's question accurately."
-                    
-                custom_rules = settings_manager.get_system_instructions()
-                if custom_rules:
-                    system_instruction = f"{system_instruction}\n\n{custom_rules}"
-
-                # Retrieve conversation history from checkpointer to preserve multi-turn memory
-                existing_messages = state["channel_values"].get("messages", []) if state else []
-                history_to_send = []
-                for m in existing_messages:
-                    if isinstance(m, HumanMessage) and m.content:
-                        history_to_send.append(HumanMessage(content=m.content))
-                    elif isinstance(m, AIMessage) and m.content:
-                        content_str = str(m.content).strip()
-                        # Skip intermediate thoughts from multi-agent turns
-                        is_thought = m.additional_kwargs.get("is_thought", False)
-                        if not is_thought:
-                            history_to_send.append(AIMessage(content=content_str))
-
-                messages = [SystemMessage(content=system_instruction)] + history_to_send + [HumanMessage(content=req.message)]
-
-                full_reply = ""
-                full_thought = ""
-                in_thought_tag = False
-                buffer = ""
+            inputs["checklist"] = checklist
+            inputs["next"] = "Supervisor"
                 
-                async for chunk in llm.astream(messages):
-                    reasoning_chunk = (
-                        getattr(chunk, "additional_kwargs", {}).get("reasoning_content")
-                        or getattr(chunk, "additional_kwargs", {}).get("reasoning")
-                        or (chunk.response_metadata.get("message", {}).get("reasoning_content") if hasattr(chunk, "response_metadata") and chunk.response_metadata else "")
-                    ) or ""
-                    content_chunk = chunk.content if isinstance(chunk.content, str) else ""
-                    
-                    if reasoning_chunk:
-                        full_thought += reasoning_chunk
-                        yield f"data: {json.dumps({'type': 'thought', 'agent': 'Model', 'delta': reasoning_chunk})}\n\n"
-                    
-                    if content_chunk:
-                        buffer += content_chunk
-                        while buffer:
-                            if not in_thought_tag:
-                                idx = buffer.find("<think>")
-                                if idx != -1:
-                                    before = buffer[:idx]
-                                    if before:
-                                        full_reply += before
-                                        yield f"data: {json.dumps({'type': 'content', 'delta': before})}\n\n"
-                                    in_thought_tag = True
-                                    buffer = buffer[idx + 7:]
-                                else:
-                                    last_lt = buffer.rfind("<")
-                                    if last_lt != -1 and "<think>".startswith(buffer[last_lt:]):
-                                        before = buffer[:last_lt]
-                                        if before:
-                                            full_reply += before
-                                            yield f"data: {json.dumps({'type': 'content', 'delta': before})}\n\n"
-                                        buffer = buffer[last_lt:]
-                                        break
-                                    else:
-                                        full_reply += buffer
-                                        yield f"data: {json.dumps({'type': 'content', 'delta': buffer})}\n\n"
-                                        buffer = ""
-                            else:
-                                idx = buffer.find("</think>")
-                                if idx != -1:
-                                    inside = buffer[:idx]
-                                    if inside:
-                                        full_thought += inside
-                                        yield f"data: {json.dumps({'type': 'thought', 'agent': 'Model', 'delta': inside})}\n\n"
-                                    in_thought_tag = False
-                                    buffer = buffer[idx + 8:]
-                                else:
-                                    last_lt = buffer.rfind("<")
-                                    if last_lt != -1 and "</think>".startswith(buffer[last_lt:]):
-                                        inside = buffer[:last_lt]
-                                        if inside:
-                                            full_thought += inside
-                                            yield f"data: {json.dumps({'type': 'thought', 'agent': 'Model', 'delta': inside})}\n\n"
-                                        buffer = buffer[last_lt:]
-                                        break
-                                    else:
-                                        full_thought += buffer
-                                        yield f"data: {json.dumps({'type': 'thought', 'agent': 'Model', 'delta': buffer})}\n\n"
-                                        buffer = ""
+            yield f"data: {json.dumps({'type': 'status', 'text': 'Supervisor analyzing request...'})}\n\n"
+                
+            collected_thoughts = []
+            final_reply = ""
+                
+            from starlette.concurrency import iterate_in_threadpool
+                
+            in_thought_tag = False
+            buffer = ""
 
-                if buffer:
-                    if in_thought_tag:
-                        full_thought += buffer
-                        yield f"data: {json.dumps({'type': 'thought', 'agent': 'Model', 'delta': buffer})}\n\n"
+            async for mode, payload in iterate_in_threadpool(compiled_app.stream(inputs, config=config, stream_mode=["messages", "updates"])):
+                if mode == "messages":
+                    msg_chunk, metadata = payload
+                    node_name = metadata.get("langgraph_node", "Model")
+                        
+                    if node_name == "Supervisor":
+                        pass # Supervisor returns JSON, streaming it token-by-token is tricky, better to just emit at the end.
                     else:
-                        full_reply += buffer
-                        yield f"data: {json.dumps({'type': 'content', 'delta': buffer})}\n\n"
-
-                duration = round(time.time() - start_time, 2)
-                
-                # Ensure a clean reasoning trace is always present
-                if full_thought.strip():
-                    thinking_formatted = f"⚡ **Thinking · Model**:\n{full_thought.strip()}"
-                elif collected_basic_thoughts:
-                    thought_summary = "\n".join(collected_basic_thoughts)
-                    thought_summary += f"\n• Synthesizing verified response for user."
-                    thinking_formatted = f"⚡ **Thinking · Model**:\n{thought_summary}"
-                else:
-                    first_line_clean = req.message.strip().split("\n")[0][:60]
-                    thought_summary = (
-                        f"• Interpreted user inquiry: \"{first_line_clean}\".\n"
-                        f"• Evaluated architectural principles and response requirements.\n"
-                        f"• Formulated comprehensive and structured output."
-                    )
-                    thinking_formatted = f"⚡ **Thinking · Model**:\n{thought_summary}"
-
-                # Calculate tokens including conversation context
-                in_tokens = max(1, sum(len(str(m.content)) for m in messages) // 4)
-                out_tokens = max(1, (len(full_reply) + len(full_thought)) // 4)
-                tokens = {'input': in_tokens, 'output': out_tokens, 'total': in_tokens + out_tokens}
-
-                # Persist turn into checkpointer to maintain multi-turn context
-                try:
-                    ai_kwargs = {}
-                    if full_thought.strip():
-                        ai_kwargs["reasoning_content"] = full_thought.strip()
-                    persisted_ai_msg = AIMessage(content=full_reply, additional_kwargs=ai_kwargs)
-                    basic_app.update_state(config, {"messages": [HumanMessage(content=req.message), persisted_ai_msg]})
-                except Exception as save_err:
-                    print(f"[Error saving basic mode state to checkpointer]: {save_err}")
-
-                yield f"data: {json.dumps({'type': 'done', 'reply': full_reply, 'thinking': thinking_formatted, 'duration': duration, 'tokens': tokens})}\n\n"
-
-
-            else:
-                # Role Mode streaming
-                from bludai.core.graph import app as compiled_app
-                checklist = ""
-                if state and "channel_values" in state:
-                    checklist = state["channel_values"].get("checklist", "")
-                    
-                inputs["checklist"] = checklist
-                inputs["next"] = "Supervisor"
-                
-                yield f"data: {json.dumps({'type': 'status', 'text': 'Supervisor analyzing request...'})}\n\n"
-                
-                collected_thoughts = []
-                final_reply = ""
-                
-                from starlette.concurrency import iterate_in_threadpool
-                
-                in_thought_tag = False
-                buffer = ""
-
-                async for mode, payload in iterate_in_threadpool(compiled_app.stream(inputs, config=config, stream_mode=["messages", "updates"])):
-                    if mode == "messages":
-                        msg_chunk, metadata = payload
-                        node_name = metadata.get("langgraph_node", "Model")
-                        
-                        if node_name == "Supervisor":
-                            pass # Supervisor returns JSON, streaming it token-by-token is tricky, better to just emit at the end.
-                        else:
-                            # Stream tokens for worker agents as 'thought'
-                            content_chunk = msg_chunk.content if isinstance(msg_chunk.content, str) else ""
-                            reasoning_chunk = (
-                                getattr(msg_chunk, "additional_kwargs", {}).get("reasoning_content") or
-                                (msg_chunk.response_metadata.get("message", {}).get("reasoning_content") if hasattr(msg_chunk, "response_metadata") else None)
-                            ) or ""
+                        # Stream tokens for worker agents as 'thought'
+                        content_chunk = msg_chunk.content if isinstance(msg_chunk.content, str) else ""
+                        reasoning_chunk = (
+                            getattr(msg_chunk, "additional_kwargs", {}).get("reasoning_content") or
+                            (msg_chunk.response_metadata.get("message", {}).get("reasoning_content") if hasattr(msg_chunk, "response_metadata") else None)
+                        ) or ""
                             
-                            if reasoning_chunk:
-                                yield f"data: {json.dumps({'type': 'thought', 'agent': node_name, 'delta': reasoning_chunk})}\n\n"
+                        if reasoning_chunk:
+                            yield f"data: {json.dumps({'type': 'thought', 'agent': node_name, 'delta': reasoning_chunk})}\n\n"
                                 
-                            if content_chunk:
-                                yield f"data: {json.dumps({'type': 'thought', 'agent': node_name, 'delta': content_chunk})}\n\n"
+                        if content_chunk:
+                            yield f"data: {json.dumps({'type': 'thought', 'agent': node_name, 'delta': content_chunk})}\n\n"
 
-                    elif mode == "updates":
-                        step = payload
-                        if "__interrupt__" in step:
-                            int_obj = step["__interrupt__"][0]
-                            interrupt_val = int_obj.value if hasattr(int_obj, "value") else int_obj
-                            yield f"data: {json.dumps({'type': 'interrupt', 'interrupt': interrupt_val})}\n\n"
-                            return
+                elif mode == "updates":
+                    step = payload
+                    if "__interrupt__" in step:
+                        int_obj = step["__interrupt__"][0]
+                        interrupt_val = int_obj.value if hasattr(int_obj, "value") else int_obj
+                        yield f"data: {json.dumps({'type': 'interrupt', 'interrupt': interrupt_val})}\n\n"
+                        return
 
-                        node_name = list(step.keys())[0]
-                        node_out = step[node_name]
+                    node_name = list(step.keys())[0]
+                    node_out = step[node_name]
                         
-                        next_target = node_out.get("next")
-                        messages = node_out.get("messages", [])
+                    next_target = node_out.get("next")
+                    messages = node_out.get("messages", [])
                         
-                        for m in messages:
-                            if isinstance(m, AIMessage):
-                                r_content = (
-                                    getattr(m, "additional_kwargs", {}).get("reasoning_content") or
-                                    (m.response_metadata.get("message", {}).get("reasoning_content") if hasattr(m, "response_metadata") else None)
-                                )
-                                if r_content:
-                                    collected_thoughts.append(f"⚡ **Thinking · {node_name}**:\n{r_content.strip()}")
+                    for m in messages:
+                        if isinstance(m, AIMessage):
+                            r_content = (
+                                getattr(m, "additional_kwargs", {}).get("reasoning_content") or
+                                (m.response_metadata.get("message", {}).get("reasoning_content") if hasattr(m, "response_metadata") else None)
+                            )
+                            if r_content:
+                                collected_thoughts.append(f"⚡ **Thinking · {node_name}**:\n{r_content.strip()}")
 
-                                content_str = str(m.content).strip() if m.content else ""
-                                is_thought = m.additional_kwargs.get("is_thought", False)
-                                if is_thought:
-                                    if not r_content or content_str.strip() != r_content.strip():
-                                        collected_thoughts.append(f"⚡ **Thinking · {node_name}**:\n{content_str}")
-                                elif getattr(m, "tool_calls", None):
-                                    for tc in m.tool_calls:
-                                        t_name = tc.get("name", "tool")
-                                        yield f"data: {json.dumps({'type': 'tool', 'name': t_name, 'status': 'running...'})}\n\n"
-                                elif next_target == "FINISH" and content_str:
-                                    final_reply = content_str
-                                    yield f"data: {json.dumps({'type': 'content', 'delta': content_str})}\n\n"
+                            content_str = str(m.content).strip() if m.content else ""
+                            is_thought = m.additional_kwargs.get("is_thought", False)
+                            if is_thought:
+                                if not r_content or content_str.strip() != r_content.strip():
+                                    collected_thoughts.append(f"⚡ **Thinking · {node_name}**:\n{content_str}")
+                            elif getattr(m, "tool_calls", None):
+                                for tc in m.tool_calls:
+                                    t_name = tc.get("name", "tool")
+                                    yield f"data: {json.dumps({'type': 'tool', 'name': t_name, 'status': 'running...'})}\n\n"
+                            elif next_target == "FINISH" and content_str:
+                                final_reply = content_str
+                                yield f"data: {json.dumps({'type': 'content', 'delta': content_str})}\n\n"
 
-                            elif isinstance(m, ToolMessage):
-                                tool_name = getattr(m, "name", "tool")
-                                tool_output = str(m.content)[:250] + ("..." if len(str(m.content)) > 250 else "")
-                                yield f"data: {json.dumps({'type': 'tool', 'name': tool_name, 'status': 'done', 'content': tool_output})}\n\n"
-                                collected_thoughts.append(f"🔧 **Tool executed ({tool_name})**:\n```\n{tool_output}\n```")
+                        elif isinstance(m, ToolMessage):
+                            tool_name = getattr(m, "name", "tool")
+                            tool_output = str(m.content)[:250] + ("..." if len(str(m.content)) > 250 else "")
+                            yield f"data: {json.dumps({'type': 'tool', 'name': tool_name, 'status': 'done', 'content': tool_output})}\n\n"
+                            collected_thoughts.append(f"🔧 **Tool executed ({tool_name})**:\n```\n{tool_output}\n```")
                         
-                        if next_target and next_target != "FINISH":
-                            yield f"data: {json.dumps({'type': 'status', 'text': f'⚡ Delegating to {next_target}...'})}\n\n"
+                    if next_target and next_target != "FINISH":
+                        yield f"data: {json.dumps({'type': 'status', 'text': f'⚡ Delegating to {next_target}...'})}\n\n"
                 
-                duration = round(time.time() - start_time, 2)
-                thinking_trace = "\n\n---\n\n".join(collected_thoughts) if collected_thoughts else (
-                    f"⚡ **Thinking · Supervisor**:\n"
-                    f"• Analyzed incoming request and evaluated agent requirements.\n"
-                    f"• Verified workflow completion and synthesized deliverable."
-                )
+            duration = round(time.time() - start_time, 2)
+            thinking_trace = "\n\n---\n\n".join(collected_thoughts) if collected_thoughts else (
+                f"⚡ **Thinking · Supervisor**:\n"
+                f"• Analyzed incoming request and evaluated agent requirements.\n"
+                f"• Verified workflow completion and synthesized deliverable."
+            )
                 
-                # Compute tokens
-                checkpointer_after = get_checkpointer()
-                state_after = checkpointer_after.get(config)
-                final_messages = state_after["channel_values"].get("messages", []) if state_after else []
-                tokens = extract_or_estimate_tokens(final_messages, initial_msg_count, prompt_text=req.message, reply_text=final_reply)
+            # Compute tokens
+            checkpointer_after = get_checkpointer()
+            state_after = checkpointer_after.get(config)
+            final_messages = state_after["channel_values"].get("messages", []) if state_after else []
+            tokens = extract_or_estimate_tokens(final_messages, initial_msg_count, prompt_text=req.message, reply_text=final_reply)
                 
-                yield f"data: {json.dumps({'type': 'done', 'reply': final_reply or 'Task completed.', 'thinking': thinking_trace, 'duration': duration, 'tokens': tokens})}\n\n"
+            yield f"data: {json.dumps({'type': 'done', 'reply': final_reply or 'Task completed.', 'thinking': thinking_trace, 'duration': duration, 'tokens': tokens})}\n\n"
                 
         except Exception as e:
             yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
