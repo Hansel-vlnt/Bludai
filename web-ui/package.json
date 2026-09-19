@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@remixicon/react": "^4.9.0",
     "lucide-react": "^1.24.0",
     "react": "^19.2.7",
     "react-aria-components": "^1.17.0",

@@ -5,6 +5,9 @@ import {
 } from 'lucide-react';
 import TemperatureSlider from './TemperatureSlider';
 import { Switch } from '@/components/base/switch/switch';
+import { Input } from '@/components/base/input/input';
+import { Textarea } from '@/components/base/textarea/textarea';
+import { Select, SelectItem } from '@/components/base/select/select';
 
 const API_BASE = 'http://localhost:8000/api';
 
@@ -215,20 +218,15 @@ const SettingsModal = ({ onClose, onSettingsUpdated }) => {
                   <p className="text-sm text-gray-400">Define global behavior, persona instructions, and safety execution limits.</p>
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-[13px] font-semibold text-gray-300 uppercase tracking-wider flex items-center justify-between">
-                    <span>System Instructions / Custom Persona Rules</span>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-950/30 text-cyan-400 border border-cyan-800/50 uppercase font-bold tracking-wider">Active in All Modes</span>
-                  </label>
-                  <textarea
+                  <Textarea
+                    label="System Instructions / Custom Persona Rules"
+                    hint="Injected directly into Supervisor orchestrator and basic agent prompts."
                     rows={6}
                     value={systemInstructions}
-                    onChange={(e) => setSystemInstructions(e.target.value)}
-                    placeholder="E.g., Always use TypeScript, follow functional programming patterns, format responses concisely in markdown..."
-                    className="w-full bg-[#050505] border border-gray-700 text-gray-100 px-3 py-3 rounded-lg outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 transition-all font-mono text-sm min-h-[150px] resize-y"
+                    onChange={setSystemInstructions}
+                    placeholder="E.g., Always use TypeScript, follow functional programming patterns..."
+                    fieldClassName="font-mono text-sm"
                   />
-                  <p className="text-[11px] text-gray-500 mt-1">Injected directly into Supervisor orchestrator and basic agent prompts.</p>
-                </div>
 
                 <div className="flex items-center gap-6">
                   <div className="space-y-2 flex-1">
@@ -278,18 +276,22 @@ const SettingsModal = ({ onClose, onSettingsUpdated }) => {
                         <div className="text-xs font-semibold text-cyan-400 mb-1.5">
                           {role} Node
                         </div>
-                        <select
-                          value={roleAssignments[role] || defaultModel}
-                          onChange={(e) => setRoleAssignments(prev => ({ ...prev, [role]: e.target.value }))}
-                          className="w-full bg-[#050505] border border-gray-700 text-gray-100 px-2 py-1.5 rounded-md outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 transition-all text-xs"
+                        <Select
+                          selectedKey={roleAssignments[role] || defaultModel}
+                          onSelectionChange={(key) => setRoleAssignments(prev => ({ ...prev, [role]: key }))}
+                          aria-label={`${role} Model`}
+                          className="w-full"
+                          renderValue={(items) => items[0]?.textValue}
                         >
-                          <option value={defaultModel}>Default ({defaultModel.split('/').pop()})</option>
+                          <SelectItem id={defaultModel} textValue={`Default (${defaultModel.split('/').pop()})`}>
+                            Default ({defaultModel.split('/').pop()})
+                          </SelectItem>
                           {modelsList.map(m => (
-                            <option key={m.id} value={m.id}>
-                              {m.name || m.id.split('/').pop()} ({m.tag || 'Fast'})
-                            </option>
+                            <SelectItem key={m.id} id={m.id} textValue={`${m.name || m.id.split('/').pop()} (${m.tag || 'Fast'})`}>
+                              {m.name || m.id.split('/').pop()} <span className="text-gray-500 ml-2">({m.tag || 'Fast'})</span>
+                            </SelectItem>
                           ))}
-                        </select>
+                        </Select>
                       </div>
                     ))}
                   </div>
@@ -308,17 +310,13 @@ const SettingsModal = ({ onClose, onSettingsUpdated }) => {
                   <p className="text-sm text-gray-400">Configure OpenAI-compatible API proxies (9Router, OpenRouter, Ollama, LM Studio).</p>
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-[13px] font-semibold text-gray-300 uppercase tracking-wider flex items-center justify-between">API Base URL</label>
-                  <input
-                    type="text"
-                    value={baseUrl}
-                    onChange={(e) => setBaseUrl(e.target.value)}
-                    placeholder="http://localhost:20128/v1"
-                    className="w-full bg-[#050505] border border-gray-700 text-gray-100 px-3 py-2 rounded-lg outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 transition-all text-sm"
-                  />
-                  <p className="text-[11px] text-gray-500 mt-1">Endpoint conforming to the OpenAI Chat Completions API specification.</p>
-                </div>
+                <Input
+                  label="API Base URL (Optional)"
+                  hint="Custom endpoint for OpenAI-compatible services (e.g. LM Studio, Ollama, vLLM)."
+                  placeholder="https://api.openai.com/v1"
+                  value={baseUrl}
+                  onChange={setBaseUrl}
+                />
 
                 <div className="space-y-2">
                   <label className="text-[13px] font-semibold text-gray-300 uppercase tracking-wider flex items-center justify-between">API Key / Token</label>
@@ -388,29 +386,28 @@ const SettingsModal = ({ onClose, onSettingsUpdated }) => {
                       {modelsList.length > 0 ? `${modelsList.length} Models from 9Router` : '9Router offline'}
                     </span>
                   </div>
-                  {modelsList.length > 0 && (
-                    <select
-                      value={defaultModel}
-                      onChange={(e) => setDefaultModel(e.target.value)}
-                      className="w-full bg-[#050505] border border-gray-700 text-gray-100 px-3 py-2 rounded-lg outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 transition-all text-sm mb-2"
+
+                  {modelsList.length > 0 ? (
+                    <Select
+                      selectedKey={defaultModel}
+                      onSelectionChange={(key) => setDefaultModel(key)}
+                      aria-label="Workspace Default Model"
+                      className="w-full"
+                      renderValue={(items) => items[0]?.textValue}
                     >
                       {modelsList.map(m => (
-                        <option key={m.id} value={m.id}>
-                          {m.id} ({m.tag || 'Fast'})
-                        </option>
+                        <SelectItem key={m.id} id={m.id} textValue={`${m.name || m.id.split('/').pop()} (${m.provider})`}>
+                          {m.name || m.id.split('/').pop()} <span className="text-gray-500 ml-2">({m.provider})</span>
+                        </SelectItem>
                       ))}
-                      {!modelsList.find(m => m.id === defaultModel) && defaultModel && (
-                        <option value={defaultModel}>{defaultModel} (Custom)</option>
-                      )}
-                    </select>
+                    </Select>
+                  ) : (
+                    <Input
+                      value={defaultModel}
+                      onChange={setDefaultModel}
+                      placeholder="e.g. gpt-4o"
+                    />
                   )}
-                  <input
-                    type="text"
-                    value={defaultModel}
-                    onChange={(e) => setDefaultModel(e.target.value)}
-                    placeholder="ag/gemini-3.8-flash"
-                    className="w-full bg-[#050505] border border-gray-700 text-gray-100 px-3 py-2 rounded-lg outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 transition-all text-sm"
-                  />
                   <p className="text-[11px] text-gray-500 mt-1">Active fallback model used when starting new sessions or when no role model is mapped.</p>
                 </div>
 
@@ -436,16 +433,18 @@ const SettingsModal = ({ onClose, onSettingsUpdated }) => {
 
                 <div className="space-y-2">
                   <label className="text-[13px] font-semibold text-gray-300 uppercase tracking-wider flex items-center justify-between">Max Completion Tokens</label>
-                  <select 
-                    value={maxTokens} 
-                    onChange={(e) => setMaxTokens(e.target.value)}
-                    className="w-full bg-[#050505] border border-gray-700 text-gray-100 px-3 py-2 rounded-lg outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 transition-all text-sm"
+                  <Select 
+                    selectedKey={String(maxTokens)} 
+                    onSelectionChange={(key) => setMaxTokens(Number(key))}
+                    aria-label="Max Completion Tokens"
+                    className="w-full"
+                    renderValue={(items) => items[0]?.textValue}
                   >
-                    <option value={2048}>2,048 Tokens (Compact)</option>
-                    <option value={4096}>4,096 Tokens (Standard)</option>
-                    <option value={8192}>8,192 Tokens (Extended Context)</option>
-                    <option value={16384}>16,384 Tokens (Deep Reasoning)</option>
-                  </select>
+                    <SelectItem id="2048" textValue="2,048 Tokens (Compact)">2,048 Tokens (Compact)</SelectItem>
+                    <SelectItem id="4096" textValue="4,096 Tokens (Standard)">4,096 Tokens (Standard)</SelectItem>
+                    <SelectItem id="8192" textValue="8,192 Tokens (Extended Context)">8,192 Tokens (Extended Context)</SelectItem>
+                    <SelectItem id="16384" textValue="16,384 Tokens (Deep Reasoning)">16,384 Tokens (Deep Reasoning)</SelectItem>
+                  </Select>
                 </div>
               </div>
             )}

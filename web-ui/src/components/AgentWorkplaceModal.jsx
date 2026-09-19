@@ -8,6 +8,8 @@ import ModelSelector from './ModelSelector';
 import { Switch } from '@/components/base/switch/switch';
 import { Badge } from '@/components/base/badges/badge';
 import { Dropdown, DropdownTrigger, DropdownPopover, DropdownItem, DropdownDivider } from '@/components/base/dropdown/dropdown';
+import { Input } from '@/components/base/input/input';
+import { Textarea } from '@/components/base/textarea/textarea';
 const API_BASE = 'http://localhost:8000/api';
 
 const ICON_MAP = {
@@ -456,52 +458,43 @@ function AgentEditorForm({ initialData, availableTools, models, onSave, onCancel
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-        <div className="flex flex-col gap-1.5">
-          <label className="text-[13px] font-semibold text-gray-300 uppercase tracking-wider">Agent Name (Identifier)</label>
-          <input 
-            type="text" 
-            className="w-full bg-[#050505] border border-gray-700 text-gray-100 px-3 py-2 rounded-lg outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 transition-all font-mono text-sm"
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            placeholder="e.g. CodeReviewer"
-            required
-          />
-          <span className="text-[11px] text-gray-500">Used in LangGraph routing nodes and thinking tags.</span>
-        </div>
+        <Input 
+          label="Agent Name (Identifier)"
+          hint="Used in LangGraph routing nodes and thinking tags."
+          value={formData.name} 
+          onChange={(val) => setFormData({ ...formData, name: val })} 
+          placeholder="e.g. CodeReviewer" 
+          fieldClassName="font-mono text-sm"
+          isRequired
+        />
 
-        <div className="flex flex-col gap-1.5">
-          <label className="text-[13px] font-semibold text-gray-300 uppercase tracking-wider">Specialist Role Title</label>
-          <input 
-            type="text" 
-            className="w-full bg-[#050505] border border-gray-700 text-gray-100 px-3 py-2 rounded-lg outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 transition-all text-sm"
-            value={formData.title}
-            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-            placeholder="e.g. Security & Vulnerability Auditor"
-          />
-        </div>
+        <Input 
+          label="Specialist Role Title"
+          hint="Display name shown in the UI."
+          value={formData.title} 
+          onChange={(val) => setFormData({ ...formData, title: val })} 
+          placeholder="e.g. Security & Vulnerability Auditor"
+        />
       </div>
 
-      <div className="flex flex-col gap-1.5 mb-6">
-        <label className="text-[13px] font-semibold text-gray-300 uppercase tracking-wider">Supervisor Delegation Directive (Description)</label>
-        <input 
-          type="text" 
-          className="w-full bg-[#050505] border border-gray-700 text-gray-100 px-3 py-2 rounded-lg outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 transition-all text-sm"
-          value={formData.description}
-          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+      <div className="mb-6">
+        <Input 
+          label="Supervisor Delegation Directive (Description)"
+          hint="This is injected into the Supervisor's prompt so it knows when to call this specialist."
+          value={formData.description} 
+          onChange={(val) => setFormData({ ...formData, description: val })} 
           placeholder="e.g. You are a senior security researcher. You review code for..."
         />
-        <span className="text-[11px] text-gray-500">This is injected into the Supervisor's prompt so it knows when to call this specialist.</span>
       </div>
 
-      <div className="flex flex-col gap-1.5 mb-6">
-        <label className="text-[13px] font-semibold text-gray-300 uppercase tracking-wider flex items-center justify-between">
-          <span>System Prompt (Instructions)</span>
-        </label>
-        <textarea 
-          className="w-full bg-[#050505] border border-gray-700 text-gray-100 px-3 py-3 rounded-lg outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 transition-all font-mono text-sm min-h-[150px] resize-y custom-scrollbar"
+      <div className="mb-6">
+        <Textarea 
+          label="System Prompt (Instructions)"
           value={formData.system_prompt}
-          onChange={(e) => setFormData({ ...formData, system_prompt: e.target.value })}
+          onChange={(val) => setFormData({ ...formData, system_prompt: val })}
           placeholder="You are an expert... Never guess... Always use tools..."
+          rows={6}
+          fieldClassName="font-mono text-sm"
         />
       </div>
 
@@ -546,24 +539,19 @@ function AgentEditorForm({ initialData, availableTools, models, onSave, onCancel
           {availableTools.map(t => {
             const isChecked = (formData.tools || []).includes(t.id);
             return (
-              <label 
+              <Switch
                 key={t.id} 
-                className="relative flex items-start p-4 cursor-pointer rounded-xl border border-gray-800 bg-[#0a0a0a] transition-all duration-200 hover:bg-[#111] hover:border-gray-700 has-[:checked]:border-cyan-500/50 has-[:checked]:bg-cyan-950/20 has-[:checked]:shadow-[0_0_15px_rgba(0,229,255,0.05)]"
+                isSelected={isChecked}
+                onChange={() => toggleTool(t.id)}
+                className={(state) => `!flex !items-start p-4 w-full cursor-pointer rounded-xl border transition-all duration-200 ${
+                  state.isSelected 
+                    ? 'border-cyan-500/50 bg-cyan-950/20 shadow-[0_0_15px_rgba(0,229,255,0.05)]' 
+                    : 'border-gray-800 bg-[#0a0a0a] hover:bg-[#111] hover:border-gray-700'
+                }`}
               >
-                <div className="flex items-center h-5 mt-1">
-                  <input 
-                    type="checkbox" 
-                    className="peer sr-only"
-                    checked={isChecked} 
-                    onChange={() => toggleTool(t.id)} 
-                  />
-                  <div className="w-5 h-5 rounded border border-gray-600 bg-transparent flex items-center justify-center peer-checked:bg-cyan-500 peer-checked:border-cyan-500 transition-colors">
-                    <Check size={14} className="text-black opacity-0 peer-checked:opacity-100 transition-opacity" strokeWidth={3} />
-                  </div>
-                </div>
-                <div className="ml-3 flex-1">
+                <div className="flex-1 text-left w-full">
                   <div className="flex justify-between items-start">
-                    <span className="text-[14px] font-semibold text-gray-200 peer-checked:text-cyan-400">{t.name}</span>
+                    <span className={`text-[14px] font-semibold ${isChecked ? 'text-cyan-400' : 'text-gray-200'}`}>{t.name}</span>
                     <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider border ${
                       t.risk === 'high' ? 'border-red-900/50 text-red-400 bg-red-950/30' : 
                       t.risk === 'medium' ? 'border-amber-900/50 text-amber-400 bg-amber-950/30' : 
@@ -574,7 +562,7 @@ function AgentEditorForm({ initialData, availableTools, models, onSave, onCancel
                   </div>
                   <p className="text-[12px] text-gray-500 mt-1 leading-relaxed">{t.description}</p>
                 </div>
-              </label>
+              </Switch>
             );
           })}
         </div>
