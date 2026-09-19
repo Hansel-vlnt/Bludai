@@ -373,7 +373,7 @@ function App() {
   };
 
   return (
-    <div className="flex w-full h-full bg-bg text-primary font-sans">
+    <div className="flex w-full h-full bg-[#11111b] text-[#cdd6f4] font-sans">
       {showSettings && (
         <SettingsModal 
           onClose={() => setShowSettings(false)} 
@@ -410,17 +410,17 @@ function App() {
       />
 
       <div className="flex-1 flex flex-col h-full relative">
-        <div className="h-[65px] px-6 flex items-center justify-between border-b border-gray-800/60 bg-[rgba(11,15,25,0.5)] backdrop-blur-md shrink-0">
+        <div className="h-[65px] px-6 flex items-center justify-between border-b border-[#313244] bg-[#181825]/80 backdrop-blur-md shrink-0">
           <div className="flex items-center gap-3">
             <span 
-              className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-md bg-[rgba(0,229,255,0.08)] text-[#00e5ff] border border-[rgba(0,229,255,0.25)]" 
+              className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-md bg-[#cba6f7]/15 text-[#cba6f7] border border-[#cba6f7]/30" 
               title="Autonomous Supervisor orchestrating specialized agents"
             >
               ⚡ Multi-Agent Workplace
             </span>
             <button
               onClick={() => setShowWorkplace(true)}
-              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-md text-[#00E5FF] bg-[rgba(0,229,255,0.08)] border border-[rgba(0,229,255,0.3)] cursor-pointer transition-all hover:bg-[rgba(0,229,255,0.18)]"
+              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-md text-[#cba6f7] bg-[#cba6f7]/15 border border-[#cba6f7]/30 cursor-pointer transition-all hover:bg-[#cba6f7]/25"
               title="Manage dynamic multi-agent roles and tool whitelisting"
             >
               <Users size={14} /> Workplace Roles
@@ -429,21 +429,21 @@ function App() {
 
           <div className="flex items-center gap-3">
             <div 
-              className="flex items-center gap-2 text-xs font-semibold text-gray-400 bg-black/40 px-3 py-1.5 border border-gray-800/80 rounded shadow-inner"
+              className="flex items-center gap-2 text-xs font-semibold text-[#a6adc8] bg-[#11111b]/70 px-3 py-1.5 border border-[#313244] rounded shadow-inner"
               title={availableModels.length > 0 ? `${availableModels.length} models loaded via 9Router proxy` : "9Router offline or unreachable"}
             >
-              <span className={`w-2 h-2 rounded-full ${availableModels.length > 0 ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`}></span>
+              <span className={`w-2 h-2 rounded-full ${availableModels.length > 0 ? 'bg-[#a6e3a1] animate-pulse' : 'bg-[#f9e2af]'}`}></span>
               <span>9Router: {availableModels.length > 0 ? `${availableModels.length} Models` : 'Offline'}</span>
             </div>
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6 scroll-smooth" ref={chatRef}>
+        <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6 scroll-smooth bg-[#11111b]" ref={chatRef}>
           {messages.length === 0 && (
             <div className="flex flex-col items-center justify-center h-full text-center opacity-50">
-              <Cpu size={48} className="mb-4 text-gray-600" />
-              <h2 className="text-xl font-semibold text-gray-300 mb-2">How can I help you today?</h2>
-              <p className="text-sm text-gray-500">Type a message to start communicating with Bludai.</p>
+              <Cpu size={48} className="mb-4 text-[#585b70]" />
+              <h2 className="text-xl font-semibold text-[#cdd6f4] mb-2">How can I help you today?</h2>
+              <p className="text-sm text-[#a6adc8]">Type a message to start communicating with Bludai.</p>
             </div>
           )}
           
@@ -455,14 +455,14 @@ function App() {
 
             return (
               <div key={i} className={`flex flex-col gap-1.5 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 px-1">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-[#a6adc8] px-1">
                   {msg.role === 'user' ? <User size={14} /> : <Bot size={14} />}
                   {msg.role === 'user' ? 'You' : 'Bludai'}
                 </div>
                 <div className={`max-w-[85%] rounded-xl px-4 py-3 text-sm leading-relaxed ${
                   msg.role === 'user' 
-                    ? 'bg-transparent border border-cyan-800/50 text-gray-200' 
-                    : 'bg-transparent border border-gray-800 text-gray-300'
+                    ? 'bg-[#1e1e2e] border border-[#cba6f7]/40 text-[#cdd6f4]' 
+                    : 'bg-[#181825] border border-[#313244] text-[#cdd6f4]'
                 }`}>
                   {thinking && (
                     <ThinkingBlock thinking={thinking} duration={msg.duration} />
@@ -473,17 +473,17 @@ function App() {
                     </div>
                   )}
                   {isAi && (msg.tokens || msg.duration) && (
-                    <div className="mt-3 pt-2 border-t border-gray-800/40">
+                    <div className="mt-3 pt-2 border-t border-[#313244]/60">
                       <div 
-                        className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-black/30 text-[11px] text-gray-500 font-mono" 
+                        className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-[#11111b]/50 text-[11px] text-[#a6adc8] font-mono" 
                         title={msg.tokens ? `Prompt tokens: ${msg.tokens.input?.toLocaleString()} | Completion: ${msg.tokens.output?.toLocaleString()}` : ''}
                       >
-                        <Cpu size={12} className="text-gray-600" />
+                        <Cpu size={12} className="text-[#6c7086]" />
                         <span>
                           {msg.tokens?.total ? `${msg.tokens.total.toLocaleString()} tokens` : (msg.tokens?.input ? `${(msg.tokens.input + (msg.tokens.output || 0)).toLocaleString()} tokens` : 'Tokens tracked')}
                         </span>
                         {msg.duration && (
-                          <span className="text-gray-600">· {msg.duration}s</span>
+                          <span className="text-[#6c7086]">· {msg.duration}s</span>
                         )}
                       </div>
                     </div>
@@ -495,8 +495,8 @@ function App() {
           
           {isTyping && (
             <div className="flex flex-col gap-1.5 items-start">
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 px-1"><Bot size={14} /> Bludai</div>
-              <div className="max-w-[85%] rounded-xl px-4 py-3 text-sm border border-gray-800 bg-transparent">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-[#a6adc8] px-1"><Bot size={14} /> Bludai</div>
+              <div className="max-w-[85%] rounded-xl px-4 py-3 text-sm border border-[#313244] bg-[#181825]">
                 <ThinkingIndicator 
                   elapsedSeconds={elapsedSeconds} 
                   liveStatus={liveStatus}
@@ -515,7 +515,7 @@ function App() {
           )}
         </div>
 
-        <div className="border-t border-gray-800/60 bg-[rgba(11,15,25,0.5)] backdrop-blur-md px-6 py-4 space-y-3">
+        <div className="border-t border-[#313244] bg-[#181825]/90 backdrop-blur-md px-6 py-4 space-y-3">
           <div className="flex items-center gap-4 flex-wrap">
             <ModelSelector 
               selectedModel={selectedModel}
@@ -527,9 +527,9 @@ function App() {
             />
           </div>
           
-          <div className="flex items-center gap-2 bg-[#0a0a0a] border border-gray-800 rounded-xl px-3 py-2 focus-within:border-cyan-500/50 focus-within:ring-1 focus-within:ring-cyan-500/30 transition-all">
+          <div className="flex items-center gap-2 bg-[#1e1e2e] border border-[#313244] rounded-xl px-3 py-2 focus-within:border-[#cba6f7] focus-within:ring-1 focus-within:ring-[#cba6f7]/30 transition-all">
             <textarea
-              className="flex-1 bg-transparent border-none outline-none text-gray-200 text-sm resize-none font-sans placeholder:text-gray-600"
+              className="flex-1 bg-transparent border-none outline-none text-[#cdd6f4] text-sm resize-none font-sans placeholder:text-[#6c7086]"
               placeholder={pendingInterrupt ? "Approve or reject terminal command first..." : "Ask Bludai..."}
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
@@ -538,7 +538,7 @@ function App() {
               rows={1}
             />
             <button 
-              className="p-2 text-cyan-400 hover:text-cyan-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors rounded-lg hover:bg-cyan-950/20" 
+              className="p-2 text-[#cba6f7] hover:text-[#b4befe] disabled:opacity-30 disabled:cursor-not-allowed transition-colors rounded-lg hover:bg-[#cba6f7]/20" 
               onClick={sendMessage}
               disabled={!inputText.trim() || isTyping || !!pendingInterrupt}
               title="Send prompt"

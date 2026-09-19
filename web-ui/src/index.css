@@ -5,6 +5,24 @@
 @theme {
   --font-sans: 'Inter', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
+
+  /* Catppuccin Mocha Palette (Verified from catppuccin.com) */
+  --color-crust: #11111b;
+  --color-mantle: #181825;
+  --color-base: #1e1e2e;
+  --color-surface0: #313244;
+  --color-surface1: #45475a;
+  --color-surface2: #585b70;
+  --color-overlay0: #6c7086;
+  --color-text: #cdd6f4;
+  --color-subtext0: #a6adc8;
+  --color-subtext1: #bac2de;
+
+  /* Semantic status colors (Verified from catppuccin.com) */
+  --color-status-ready: #a6e3a1;     /* Catppuccin Green */
+  --color-status-running: #f9e2af;   /* Catppuccin Yellow */
+  --color-status-error: #f38ba8;     /* Catppuccin Red */
+  --color-status-supervisor: #cba6f7;/* Catppuccin Mauve */
 }
 
 :root {
@@ -19,8 +37,8 @@
 
 body {
   font-family: 'Inter', sans-serif;
-  background-color: #050505;
-  color: #d1d5db;
+  background-color: #11111b;
+  color: #cdd6f4;
   height: 100vh;
   overflow: hidden;
   display: flex;
@@ -48,29 +66,31 @@ body {
 }
 
 .markdown-body pre {
-  background: #0f172a;
+  background: #181825;
   padding: 0.75rem;
   border-radius: 0.5rem;
   overflow-x: auto;
   margin: 0.75rem 0;
-  border: 1px solid #1f2937;
+  border: 1px solid #313244;
 }
 
 .markdown-body code {
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.85em;
-  background: rgba(0, 0, 0, 0.4);
+  background: #313244;
+  color: #cba6f7;
   padding: 0.125rem 0.25rem;
   border-radius: 0.25rem;
 }
 
 .markdown-body pre code {
   background: transparent;
+  color: inherit;
   padding: 0;
 }
 
 .markdown-body a {
-  color: #22d3ee;
+  color: #89b4fa;
   text-decoration: underline;
 }
 
@@ -87,7 +107,7 @@ body {
 }
 
 .markdown-body h1, .markdown-body h2, .markdown-body h3, .markdown-body h4 {
-  color: #f3f4f6;
+  color: #f5e0dc;
   font-weight: 600;
   margin-top: 1rem;
   margin-bottom: 0.5rem;
@@ -109,10 +129,10 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #1f2937;
+  background: #313244;
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #374151;
+  background: #45475a;
 }
