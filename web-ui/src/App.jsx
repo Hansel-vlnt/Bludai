@@ -24,7 +24,6 @@ function App() {
   const [liveThoughts, setLiveThoughts] = useState([]);
   const [liveTools, setLiveTools] = useState([]);
   const [pendingInterrupt, setPendingInterrupt] = useState(null);
-  const [mode, setMode] = useState('role');
   const [showSettings, setShowSettings] = useState(false);
   const [showWorkplace, setShowWorkplace] = useState(false);
   const [selectedModel, setSelectedModel] = useState('');
@@ -98,17 +97,13 @@ function App() {
     }
   };
 
-  const loadSession = async (threadId, sessionMode) => {
+  const loadSession = async (threadId) => {
     setCurrentThread(threadId);
-    if (sessionMode) setMode(sessionMode);
     
     try {
       const res = await fetch(`${API_BASE}/sessions/${threadId}/history`);
       const data = await res.json();
       setMessages(data.messages || []);
-      if (data.mode) {
-        setMode(data.mode);
-      }
     } catch (err) {
       console.error("Failed to fetch session history", err);
     }
@@ -303,7 +298,6 @@ function App() {
         body: JSON.stringify({
           thread_id: thread_id,
           message: currentInput,
-          mode: mode,
           basic_model: selectedModel,
           temperature: temperature
         })
@@ -326,7 +320,6 @@ function App() {
           body: JSON.stringify({
             thread_id: thread_id,
             message: currentInput,
-            mode: mode,
             basic_model: selectedModel,
             temperature: temperature
           })
@@ -416,96 +409,41 @@ function App() {
         setShowWorkplace={setShowWorkplace}
       />
 
-      <div className="main-area">
-        <div className="topbar">
-          <div className="mode-selector">
-            <button 
-              className={`mode-btn ${mode === 'role' ? 'active' : ''}`}
-              onClick={() => setMode('role')}
+      <div className="flex-1 flex flex-col h-full relative">
+        <div className="h-[65px] px-6 flex items-center justify-between border-b border-gray-800/60 bg-[rgba(11,15,25,0.5)] backdrop-blur-md shrink-0">
+          <div className="flex items-center gap-3">
+            <span 
+              className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-md bg-[rgba(0,229,255,0.08)] text-[#00e5ff] border border-[rgba(0,229,255,0.25)]" 
+              title="Autonomous Supervisor orchestrating specialized agents"
             >
-              Role Mode (Agents)
-            </button>
-            <button 
-              className={`mode-btn ${mode === 'basic' ? 'active' : ''}`}
-              onClick={() => setMode('basic')}
-            >
-              Basic Mode
-            </button>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            {mode === 'role' ? (
-              <span 
-                className="mode-indicator-pill role" 
-                title="Role Mode: Autonomous Supervisor orchestrating specialized agents (Developer, Executor, Researcher, etc.)"
-              >
-                ⚡ Multi-Agent Workplace
-              </span>
-            ) : (
-              <span 
-                className="mode-indicator-pill basic" 
-                title="Basic Mode: Direct single-model streaming with live search and zero agent overhead"
-              >
-                💬 Direct Chat (Basic)
-              </span>
-            )}
+              ⚡ Multi-Agent Workplace
+            </span>
             <button
               onClick={() => setShowWorkplace(true)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                fontSize: '0.8rem',
-                color: '#00E5FF',
-                background: 'rgba(0, 229, 255, 0.08)',
-                padding: '6px 12px',
-                border: '1px solid rgba(0, 229, 255, 0.3)',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                fontWeight: 600,
-                transition: 'all 0.2s ease'
-              }}
+              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-md text-[#00E5FF] bg-[rgba(0,229,255,0.08)] border border-[rgba(0,229,255,0.3)] cursor-pointer transition-all hover:bg-[rgba(0,229,255,0.18)]"
               title="Manage dynamic multi-agent roles and tool whitelisting"
-              onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(0, 229, 255, 0.18)'; }}
-              onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(0, 229, 255, 0.08)'; }}
             >
               <Users size={14} /> Workplace Roles
             </button>
+          </div>
+
+          <div className="flex items-center gap-3">
             <div 
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                fontSize: '0.75rem',
-                color: 'var(--text-secondary)',
-                background: 'rgba(0,0,0,0.3)',
-                padding: '4px 10px',
-                border: '1px solid var(--panel-border)',
-                borderRadius: '0'
-              }}
+              className="flex items-center gap-2 text-xs font-semibold text-gray-400 bg-black/40 px-3 py-1.5 border border-gray-800/80 rounded shadow-inner"
               title={availableModels.length > 0 ? `${availableModels.length} models loaded via 9Router proxy` : "9Router offline or unreachable"}
             >
-              <span 
-                style={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: '50%',
-                  background: availableModels.length > 0 ? '#10b981' : '#f59e0b',
-                  boxShadow: availableModels.length > 0 ? '0 0 8px #10b981' : 'none',
-                  display: 'inline-block'
-                }} 
-              />
+              <span className={`w-2 h-2 rounded-full ${availableModels.length > 0 ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`}></span>
               <span>9Router: {availableModels.length > 0 ? `${availableModels.length} Models` : 'Offline'}</span>
             </div>
           </div>
         </div>
 
-        <div className="chat-container" ref={chatRef}>
+        <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6 scroll-smooth" ref={chatRef}>
           {messages.length === 0 && (
-            <div style={{margin: 'auto', textAlign: 'center', opacity: 0.5}}>
-              <Cpu size={48} style={{marginBottom: 16}} />
-              <h2>How can I help you today?</h2>
-              <p>Type a message to start communicating with Bludai.</p>
+            <div className="flex flex-col items-center justify-center h-full text-center opacity-50">
+              <Cpu size={48} className="mb-4 text-gray-600" />
+              <h2 className="text-xl font-semibold text-gray-300 mb-2">How can I help you today?</h2>
+              <p className="text-sm text-gray-500">Type a message to start communicating with Bludai.</p>
             </div>
           )}
           
@@ -516,12 +454,16 @@ function App() {
               : { thinking: null, cleanContent: msg.content };
 
             return (
-              <div key={i} className={`message-wrapper ${msg.role === 'user' ? 'user' : 'ai'}`}>
-                <div className="message-sender">
+              <div key={i} className={`flex flex-col gap-1.5 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 px-1">
                   {msg.role === 'user' ? <User size={14} /> : <Bot size={14} />}
                   {msg.role === 'user' ? 'You' : 'Bludai'}
                 </div>
-                <div className="message-bubble">
+                <div className={`max-w-[85%] rounded-xl px-4 py-3 text-sm leading-relaxed ${
+                  msg.role === 'user' 
+                    ? 'bg-transparent border border-cyan-800/50 text-gray-200' 
+                    : 'bg-transparent border border-gray-800 text-gray-300'
+                }`}>
                   {thinking && (
                     <ThinkingBlock thinking={thinking} duration={msg.duration} />
                   )}
@@ -531,17 +473,17 @@ function App() {
                     </div>
                   )}
                   {isAi && (msg.tokens || msg.duration) && (
-                    <div className="token-meta-bar">
+                    <div className="mt-3 pt-2 border-t border-gray-800/40">
                       <div 
-                        className="token-pill-badge" 
+                        className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-black/30 text-[11px] text-gray-500 font-mono" 
                         title={msg.tokens ? `Prompt tokens: ${msg.tokens.input?.toLocaleString()} | Completion: ${msg.tokens.output?.toLocaleString()}` : ''}
                       >
-                        <Cpu size={12} className="token-cpu-icon" />
-                        <span className="token-count-text">
+                        <Cpu size={12} className="text-gray-600" />
+                        <span>
                           {msg.tokens?.total ? `${msg.tokens.total.toLocaleString()} tokens` : (msg.tokens?.input ? `${(msg.tokens.input + (msg.tokens.output || 0)).toLocaleString()} tokens` : 'Tokens tracked')}
                         </span>
                         {msg.duration && (
-                          <span className="token-dur-text">· {msg.duration}s</span>
+                          <span className="text-gray-600">· {msg.duration}s</span>
                         )}
                       </div>
                     </div>
@@ -552,12 +494,11 @@ function App() {
           })}
           
           {isTyping && (
-            <div className="message-wrapper ai">
-              <div className="message-sender"><Bot size={14} /> Bludai</div>
-              <div className="message-bubble claude-bubble-thinking">
+            <div className="flex flex-col gap-1.5 items-start">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 px-1"><Bot size={14} /> Bludai</div>
+              <div className="max-w-[85%] rounded-xl px-4 py-3 text-sm border border-gray-800 bg-transparent">
                 <ThinkingIndicator 
                   elapsedSeconds={elapsedSeconds} 
-                  mode={mode} 
                   liveStatus={liveStatus}
                   liveThoughts={liveThoughts}
                   liveTools={liveTools}
@@ -574,45 +515,21 @@ function App() {
           )}
         </div>
 
-        <div className="input-area">
-          <div className="controls-row" style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
+        <div className="border-t border-gray-800/60 bg-[rgba(11,15,25,0.5)] backdrop-blur-md px-6 py-4 space-y-3">
+          <div className="flex items-center gap-4 flex-wrap">
             <ModelSelector 
               selectedModel={selectedModel}
               setSelectedModel={setSelectedModel}
               availableModels={availableModels}
-              label={mode === 'role' ? 'Supervisor Model' : 'Chat Model'}
+              label="Default / Supervisor Model"
               onRefresh={() => fetchModels(true)}
               isRefreshing={isRefreshingModels}
             />
-            {mode === 'role' && (
-              <button
-                type="button"
-                onClick={() => setShowWorkplace(true)}
-                style={{
-                  background: 'rgba(0, 229, 255, 0.05)',
-                  border: '1px dashed rgba(0, 229, 255, 0.3)',
-                  borderRadius: '6px',
-                  color: '#00E5FF',
-                  padding: '5px 10px',
-                  fontSize: '0.75rem',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  transition: 'all 0.2s ease'
-                }}
-                title="Configure custom models and tools for workplace specialists (Developer, Executor, etc.)"
-                onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(0, 229, 255, 0.12)'; }}
-                onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(0, 229, 255, 0.05)'; }}
-              >
-                <Users size={12} />
-                <span>Specialist Agents Roster</span>
-              </button>
-            )}
           </div>
           
-          <div className="input-box glass-panel">
+          <div className="flex items-center gap-2 bg-[#0a0a0a] border border-gray-800 rounded-xl px-3 py-2 focus-within:border-cyan-500/50 focus-within:ring-1 focus-within:ring-cyan-500/30 transition-all">
             <textarea
+              className="flex-1 bg-transparent border-none outline-none text-gray-200 text-sm resize-none font-sans placeholder:text-gray-600"
               placeholder={pendingInterrupt ? "Approve or reject terminal command first..." : "Ask Bludai..."}
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
@@ -621,7 +538,7 @@ function App() {
               rows={1}
             />
             <button 
-              className="send-btn" 
+              className="p-2 text-cyan-400 hover:text-cyan-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors rounded-lg hover:bg-cyan-950/20" 
               onClick={sendMessage}
               disabled={!inputText.trim() || isTyping || !!pendingInterrupt}
               title="Send prompt"

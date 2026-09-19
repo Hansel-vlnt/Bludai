@@ -334,9 +334,9 @@ def chat(req: ChatRequest):
     existing = session_manager.get_session(req.thread_id)
     if not existing:
         title = req.message[:30] + ("..." if len(req.message) > 30 else "")
-        session_manager.create_or_update_session(req.thread_id, title, req.mode)
+        session_manager.create_or_update_session(req.thread_id, title, "role")
     else:
-        session_manager.update_session(req.thread_id, mode=req.mode)
+        session_manager.update_session(req.thread_id, mode="role")
 
     inputs = {
         "messages": [HumanMessage(content=req.message)],
@@ -438,9 +438,9 @@ async def chat_stream(req: ChatRequest):
     existing = session_manager.get_session(req.thread_id)
     if not existing:
         title = req.message[:30] + ("..." if len(req.message) > 30 else "")
-        session_manager.create_or_update_session(req.thread_id, title, req.mode)
+        session_manager.create_or_update_session(req.thread_id, title, "role")
     else:
-        session_manager.update_session(req.thread_id, mode=req.mode)
+        session_manager.update_session(req.thread_id, mode="role")
 
     inputs = {
         "messages": [HumanMessage(content=req.message)],

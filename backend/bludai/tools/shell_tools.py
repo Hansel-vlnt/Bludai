@@ -43,12 +43,13 @@ def run_terminal_command(command: str) -> str:
 
     console.print(f"[bold green]Running command...[/]")
     try:
-        # Run command in subshell
+        # Run command in subshell with stdin closed to prevent hanging on interactive prompts (e.g. Windows 'date')
         result = subprocess.run(
             command,
             shell=True,
             capture_output=True,
             text=True,
+            stdin=subprocess.DEVNULL,
             timeout=120
         )
         

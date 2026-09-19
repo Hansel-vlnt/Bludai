@@ -3,6 +3,8 @@ import {
   X, Save, Bot, Wifi, Sliders, Palette, Eye, EyeOff, 
   Activity, CheckCircle2, AlertTriangle, Shield, Cpu
 } from 'lucide-react';
+import TemperatureSlider from './TemperatureSlider';
+import { Switch } from '@/components/base/switch/switch';
 
 const API_BASE = 'http://localhost:8000/api';
 
@@ -152,41 +154,51 @@ const SettingsModal = ({ onClose, onSettingsUpdated }) => {
   };
 
   return (
-    <div className="settings-overlay">
-      <div className="settings-modal modern-settings-modal">
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200">
+      <div className="w-full max-w-5xl h-[85vh] bg-[#09090b] border border-gray-800/80 rounded-2xl shadow-2xl flex flex-col overflow-hidden ring-1 ring-white/5">
         {/* Modal Header */}
-        <div className="settings-header">
-          <div className="modal-title-box">
-            <h3><span className="terminal-prompt">&gt;_</span> System &amp; Agent Configuration</h3>
-            <span className="modal-subtitle">Antigravity-grade agent platform parameters</span>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800/60 bg-[#0c0c0e]">
+          <div className="flex flex-col gap-1">
+            <h3 className="text-lg font-semibold text-gray-100 flex items-center gap-2">
+              <span className="text-cyan-400 font-mono font-bold">&gt;_</span> 
+              System &amp; Agent Configuration
+            </h3>
+            <span className="text-[13px] text-gray-400 font-medium">
+              Antigravity-grade agent platform parameters
+            </span>
           </div>
-          <button className="close-btn" onClick={onClose}><X size={20} /></button>
+          <button 
+            className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors" 
+            onClick={onClose}
+          >
+            <X size={20} />
+          </button>
         </div>
 
         {/* Modal Content with Tabs */}
-        <div className="settings-container-grid">
+        <div className="flex flex-row overflow-hidden flex-1">
           {/* Navigation Sidebar */}
-          <div className="settings-nav">
+          <div className="w-48 bg-[#0c0c0e] border-r border-gray-800 flex flex-col">
             <button 
-              className={`nav-tab-btn ${activeTab === 'agent' ? 'active' : ''}`}
+              className={`w-full text-left px-4 py-3 text-sm flex items-center gap-2 transition-colors ${activeTab === 'agent' ? 'text-cyan-400 bg-cyan-950/20 border-l-2 border-cyan-400' : 'text-gray-400 hover:bg-gray-800/50'}`}
               onClick={() => setActiveTab('agent')}
             >
               <Bot size={16} /> Agent &amp; Rules
             </button>
             <button 
-              className={`nav-tab-btn ${activeTab === 'connectivity' ? 'active' : ''}`}
+              className={`w-full text-left px-4 py-3 text-sm flex items-center gap-2 transition-colors ${activeTab === 'connectivity' ? 'text-cyan-400 bg-cyan-950/20 border-l-2 border-cyan-400' : 'text-gray-400 hover:bg-gray-800/50'}`}
               onClick={() => setActiveTab('connectivity')}
             >
               <Wifi size={16} /> Connectivity
             </button>
             <button 
-              className={`nav-tab-btn ${activeTab === 'generation' ? 'active' : ''}`}
+              className={`w-full text-left px-4 py-3 text-sm flex items-center gap-2 transition-colors ${activeTab === 'generation' ? 'text-cyan-400 bg-cyan-950/20 border-l-2 border-cyan-400' : 'text-gray-400 hover:bg-gray-800/50'}`}
               onClick={() => setActiveTab('generation')}
             >
               <Sliders size={16} /> Defaults &amp; Gen
             </button>
             <button 
-              className={`nav-tab-btn ${activeTab === 'theme' ? 'active' : ''}`}
+              className={`w-full text-left px-4 py-3 text-sm flex items-center gap-2 transition-colors ${activeTab === 'theme' ? 'text-cyan-400 bg-cyan-950/20 border-l-2 border-cyan-400' : 'text-gray-400 hover:bg-gray-800/50'}`}
               onClick={() => setActiveTab('theme')}
             >
               <Palette size={16} /> Terminal Theme
@@ -194,44 +206,44 @@ const SettingsModal = ({ onClose, onSettingsUpdated }) => {
           </div>
 
           {/* Tab Panes */}
-          <div className="settings-tab-content">
+          <div className="flex-1 overflow-y-auto p-6">
             {/* TAB 1: AGENT & RULES */}
             {activeTab === 'agent' && (
-              <div className="tab-pane">
-                <div className="pane-header">
-                  <h4>Agent System Rules &amp; Autonomy</h4>
-                  <p>Define global behavior, persona instructions, and safety execution limits.</p>
+              <div className="space-y-6">
+                <div>
+                  <h4 className="text-base font-bold text-gray-100 mb-1">Agent System Rules &amp; Autonomy</h4>
+                  <p className="text-sm text-gray-400">Define global behavior, persona instructions, and safety execution limits.</p>
                 </div>
 
-                <div className="setting-group">
-                  <label className="setting-label">
+                <div className="space-y-2">
+                  <label className="text-[13px] font-semibold text-gray-300 uppercase tracking-wider flex items-center justify-between">
                     <span>System Instructions / Custom Persona Rules</span>
-                    <span className="badge">Active in All Modes</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-950/30 text-cyan-400 border border-cyan-800/50 uppercase font-bold tracking-wider">Active in All Modes</span>
                   </label>
                   <textarea
                     rows={6}
                     value={systemInstructions}
                     onChange={(e) => setSystemInstructions(e.target.value)}
                     placeholder="E.g., Always use TypeScript, follow functional programming patterns, format responses concisely in markdown..."
-                    className="terminal-textarea"
+                    className="w-full bg-[#050505] border border-gray-700 text-gray-100 px-3 py-3 rounded-lg outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 transition-all font-mono text-sm min-h-[150px] resize-y"
                   />
-                  <p className="setting-help">Injected directly into Supervisor orchestrator and basic agent prompts.</p>
+                  <p className="text-[11px] text-gray-500 mt-1">Injected directly into Supervisor orchestrator and basic agent prompts.</p>
                 </div>
 
-                <div className="setting-row">
-                  <div className="setting-group flex-1">
-                    <label className="setting-label">Execution Safety Mode</label>
-                    <div className="radio-pill-group">
+                <div className="flex items-center gap-6">
+                  <div className="space-y-2 flex-1">
+                    <label className="text-[13px] font-semibold text-gray-300 uppercase tracking-wider flex items-center justify-between">Execution Safety Mode</label>
+                    <div className="flex gap-2">
                       <button
                         type="button"
-                        className={`pill-btn ${executionMode === 'auto' ? 'active' : ''}`}
+                        className={`px-4 py-2 text-sm font-medium border rounded-lg flex items-center gap-2 transition-colors ${executionMode === 'auto' ? 'border-cyan-500 bg-cyan-950/30 text-cyan-400' : 'border-gray-700 bg-[#0a0a0a] text-gray-300 hover:bg-gray-800'}`}
                         onClick={() => setExecutionMode('auto')}
                       >
                         <Cpu size={14} /> Autonomous (Full Auto)
                       </button>
                       <button
                         type="button"
-                        className={`pill-btn ${executionMode === 'supervised' ? 'active' : ''}`}
+                        className={`px-4 py-2 text-sm font-medium border rounded-lg flex items-center gap-2 transition-colors ${executionMode === 'supervised' ? 'border-cyan-500 bg-cyan-950/30 text-cyan-400' : 'border-gray-700 bg-[#0a0a0a] text-gray-300 hover:bg-gray-800'}`}
                         onClick={() => setExecutionMode('supervised')}
                       >
                         <Shield size={14} /> Supervised (Safe)
@@ -239,38 +251,37 @@ const SettingsModal = ({ onClose, onSettingsUpdated }) => {
                     </div>
                   </div>
 
-                  <div className="setting-group" style={{ width: '150px' }}>
-                    <label className="setting-label">Max Steps / Loop</label>
+                  <div className="space-y-2 w-[150px]">
+                    <label className="text-[13px] font-semibold text-gray-300 uppercase tracking-wider flex items-center justify-between">Max Steps / Loop</label>
                     <input
                       type="number"
                       min={5}
                       max={100}
                       value={maxSteps}
                       onChange={(e) => setMaxSteps(e.target.value)}
-                      className="terminal-input"
+                      className="w-full bg-[#050505] border border-gray-700 text-gray-100 px-3 py-2 rounded-lg outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 transition-all text-sm"
                     />
                   </div>
                 </div>
 
-                <div className="setting-group" style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-                  <label className="setting-label">
+                <div className="space-y-2 mt-5 pt-4 border-t border-gray-800/60">
+                  <label className="text-[13px] font-semibold text-gray-300 uppercase tracking-wider flex items-center justify-between">
                     <span>Multi-Agent Role Model Specialization</span>
-                    <span className="badge">Active Models</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-950/30 text-cyan-400 border border-cyan-800/50 uppercase font-bold tracking-wider">Active Models</span>
                   </label>
-                  <p className="setting-help" style={{ marginBottom: '12px' }}>
+                  <p className="text-[11px] text-gray-500 mt-1 mb-3">
                     Optionally assign specialized 9Router models to individual multi-agent nodes.
                   </p>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
+                  <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3">
                     {(Object.keys(roleAssignments).length > 0 ? Object.keys(roleAssignments) : ['Supervisor', 'Developer', 'Executor']).map(role => (
-                      <div key={role} style={{ background: 'rgba(0,0,0,0.25)', padding: '10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)' }}>
-                        <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--accent-color)', marginBottom: '6px' }}>
+                      <div key={role} className="bg-black/25 p-2.5 rounded-lg border border-white/5">
+                        <div className="text-xs font-semibold text-cyan-400 mb-1.5">
                           {role} Node
                         </div>
                         <select
                           value={roleAssignments[role] || defaultModel}
                           onChange={(e) => setRoleAssignments(prev => ({ ...prev, [role]: e.target.value }))}
-                          className="terminal-select"
-                          style={{ fontSize: '0.75rem', padding: '6px', borderRadius: '6px' }}
+                          className="w-full bg-[#050505] border border-gray-700 text-gray-100 px-2 py-1.5 rounded-md outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 transition-all text-xs"
                         >
                           <option value={defaultModel}>Default ({defaultModel.split('/').pop()})</option>
                           {modelsList.map(m => (
@@ -282,7 +293,7 @@ const SettingsModal = ({ onClose, onSettingsUpdated }) => {
                       </div>
                     ))}
                   </div>
-                  <p className="setting-help" style={{ marginTop: '10px' }}>
+                  <p className="text-[11px] text-gray-500 mt-2.5">
                     💡 Want to add new custom agents, modify personas, or whitelist specific tools? Open <strong>⚡ Agent Workplace</strong> from the sidebar.
                   </p>
                 </div>
@@ -291,60 +302,60 @@ const SettingsModal = ({ onClose, onSettingsUpdated }) => {
 
             {/* TAB 2: CONNECTIVITY */}
             {activeTab === 'connectivity' && (
-              <div className="tab-pane">
-                <div className="pane-header">
-                  <h4>Provider &amp; Router Connectivity</h4>
-                  <p>Configure OpenAI-compatible API proxies (9Router, OpenRouter, Ollama, LM Studio).</p>
+              <div className="space-y-6">
+                <div>
+                  <h4 className="text-base font-bold text-gray-100 mb-1">Provider &amp; Router Connectivity</h4>
+                  <p className="text-sm text-gray-400">Configure OpenAI-compatible API proxies (9Router, OpenRouter, Ollama, LM Studio).</p>
                 </div>
 
-                <div className="setting-group">
-                  <label className="setting-label">API Base URL</label>
+                <div className="space-y-2">
+                  <label className="text-[13px] font-semibold text-gray-300 uppercase tracking-wider flex items-center justify-between">API Base URL</label>
                   <input
                     type="text"
                     value={baseUrl}
                     onChange={(e) => setBaseUrl(e.target.value)}
                     placeholder="http://localhost:20128/v1"
-                    className="terminal-input"
+                    className="w-full bg-[#050505] border border-gray-700 text-gray-100 px-3 py-2 rounded-lg outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 transition-all text-sm"
                   />
-                  <p className="setting-help">Endpoint conforming to the OpenAI Chat Completions API specification.</p>
+                  <p className="text-[11px] text-gray-500 mt-1">Endpoint conforming to the OpenAI Chat Completions API specification.</p>
                 </div>
 
-                <div className="setting-group">
-                  <label className="setting-label">API Key / Token</label>
-                  <div className="input-with-icon">
+                <div className="space-y-2">
+                  <label className="text-[13px] font-semibold text-gray-300 uppercase tracking-wider flex items-center justify-between">API Key / Token</label>
+                  <div className="relative flex items-center">
                     <input
                       type={showKey ? "text" : "password"}
                       value={apiKey}
                       onChange={(e) => setApiKey(e.target.value)}
                       placeholder="sk-..."
-                      className="terminal-input"
+                      className="w-full bg-[#050505] border border-gray-700 text-gray-100 px-3 py-2 rounded-lg outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 transition-all text-sm"
                     />
                     <button
                       type="button"
-                      className="icon-addon-btn"
+                      className="absolute right-2 p-1.5 text-gray-400 hover:text-white transition-colors"
                       onClick={() => setShowKey(!showKey)}
                       title={showKey ? "Hide key" : "Show key"}
                     >
                       {showKey ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
                   </div>
-                  <p className="setting-help">Saved strictly to backend/.env (Never saved to settings JSON or Git).</p>
+                  <p className="text-[11px] text-gray-500 mt-1">Saved strictly to backend/.env (Never saved to settings JSON or Git).</p>
                 </div>
 
                 {/* Connection Ping Box */}
-                <div className="ping-test-box">
+                <div className="mt-4 pt-4 border-t border-gray-800/60 flex items-center gap-4">
                   <button
                     type="button"
-                    className="test-btn"
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium border border-gray-700 bg-[#0a0a0a] text-gray-300 rounded-lg hover:bg-gray-800 transition-colors"
                     onClick={handleTestConnection}
                     disabled={testingConnection}
                   >
-                    <Activity size={14} className={testingConnection ? "spinning" : ""} />
+                    <Activity size={14} className={testingConnection ? "animate-spin" : ""} />
                     {testingConnection ? 'Probing router...' : 'Test Connection'}
                   </button>
 
                   {testResult && (
-                    <div className={`ping-result-badge ${testResult.status}`}>
+                    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium ${testResult.status === 'success' ? 'text-emerald-400 bg-emerald-950/30 border border-emerald-900/50' : 'text-red-400 bg-red-950/30 border border-red-900/50'}`}>
                       {testResult.status === 'success' ? (
                         <>
                           <CheckCircle2 size={14} />
@@ -364,16 +375,16 @@ const SettingsModal = ({ onClose, onSettingsUpdated }) => {
 
             {/* TAB 3: GENERATION DEFAULTS */}
             {activeTab === 'generation' && (
-              <div className="tab-pane">
-                <div className="pane-header">
-                  <h4>Model &amp; Generation Defaults</h4>
-                  <p>Fine-tune fallback model IDs, output lengths, and creativity parameters.</p>
+              <div className="space-y-6">
+                <div>
+                  <h4 className="text-base font-bold text-gray-100 mb-1">Model &amp; Generation Defaults</h4>
+                  <p className="text-sm text-gray-400">Fine-tune fallback model IDs, output lengths, and creativity parameters.</p>
                 </div>
 
-                <div className="setting-group">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                    <label className="setting-label" style={{ margin: 0 }}>Default Model Identifier</label>
-                    <span className="badge" style={{ fontSize: '0.7rem' }}>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="text-[13px] font-semibold text-gray-300 uppercase tracking-wider flex items-center m-0">Default Model Identifier</label>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-950/30 text-cyan-400 border border-cyan-800/50 uppercase font-bold tracking-wider">
                       {modelsList.length > 0 ? `${modelsList.length} Models from 9Router` : '9Router offline'}
                     </span>
                   </div>
@@ -381,8 +392,7 @@ const SettingsModal = ({ onClose, onSettingsUpdated }) => {
                     <select
                       value={defaultModel}
                       onChange={(e) => setDefaultModel(e.target.value)}
-                      className="terminal-select"
-                      style={{ marginBottom: '8px' }}
+                      className="w-full bg-[#050505] border border-gray-700 text-gray-100 px-3 py-2 rounded-lg outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 transition-all text-sm mb-2"
                     >
                       {modelsList.map(m => (
                         <option key={m.id} value={m.id}>
@@ -399,13 +409,13 @@ const SettingsModal = ({ onClose, onSettingsUpdated }) => {
                     value={defaultModel}
                     onChange={(e) => setDefaultModel(e.target.value)}
                     placeholder="ag/gemini-3.8-flash"
-                    className="terminal-input"
+                    className="w-full bg-[#050505] border border-gray-700 text-gray-100 px-3 py-2 rounded-lg outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 transition-all text-sm"
                   />
-                  <p className="setting-help">Active fallback model used when starting new sessions or when no role model is mapped.</p>
+                  <p className="text-[11px] text-gray-500 mt-1">Active fallback model used when starting new sessions or when no role model is mapped.</p>
                 </div>
 
-                <div className="setting-group">
-                  <label className="setting-label">
+                <div className="space-y-2">
+                  <label className="text-[13px] font-semibold text-gray-300 uppercase tracking-wider flex items-center justify-between">
                     <span>Default Generation Temperature: <strong>{parseFloat(defaultTemperature).toFixed(2)}</strong></span>
                   </label>
                   <input
@@ -415,21 +425,21 @@ const SettingsModal = ({ onClose, onSettingsUpdated }) => {
                     step="0.05"
                     value={defaultTemperature}
                     onChange={(e) => setDefaultTemperature(e.target.value)}
-                    className="full-width-slider"
+                    className="w-full accent-cyan-400"
                   />
-                  <div className="slider-scale">
+                  <div className="flex justify-between text-[11px] text-gray-500 mt-1">
                     <span>0.0 (Deterministic / Code)</span>
                     <span>0.7 (Balanced)</span>
                     <span>1.5 (Creative)</span>
                   </div>
                 </div>
 
-                <div className="setting-group">
-                  <label className="setting-label">Max Completion Tokens</label>
+                <div className="space-y-2">
+                  <label className="text-[13px] font-semibold text-gray-300 uppercase tracking-wider flex items-center justify-between">Max Completion Tokens</label>
                   <select 
                     value={maxTokens} 
                     onChange={(e) => setMaxTokens(e.target.value)}
-                    className="terminal-select"
+                    className="w-full bg-[#050505] border border-gray-700 text-gray-100 px-3 py-2 rounded-lg outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 transition-all text-sm"
                   >
                     <option value={2048}>2,048 Tokens (Compact)</option>
                     <option value={4096}>4,096 Tokens (Standard)</option>
@@ -442,43 +452,42 @@ const SettingsModal = ({ onClose, onSettingsUpdated }) => {
 
             {/* TAB 4: THEME & INTERFACE */}
             {activeTab === 'theme' && (
-              <div className="tab-pane">
-                <div className="pane-header">
-                  <h4>Terminal Aesthetic &amp; UX</h4>
-                  <p>Customize cyber-terminal accent lighting and reasoning display toggles.</p>
+              <div className="space-y-6">
+                <div>
+                  <h4 className="text-base font-bold text-gray-100 mb-1">Terminal Aesthetic &amp; UX</h4>
+                  <p className="text-sm text-gray-400">Customize cyber-terminal accent lighting and reasoning display toggles.</p>
                 </div>
 
-                <div className="setting-group">
-                  <label className="setting-label">Terminal Color Theme</label>
-                  <div className="theme-swatch-grid">
+                <div className="space-y-2">
+                  <label className="text-[13px] font-semibold text-gray-300 uppercase tracking-wider flex items-center justify-between">Terminal Color Theme</label>
+                  <div className="grid grid-cols-2 gap-3">
                     {THEME_PRESETS.map((t) => (
                       <div
                         key={t.id}
-                        className={`theme-card ${themeAccent === t.id ? 'selected' : ''}`}
+                        className={`p-3 rounded-xl border bg-[#0a0a0a] cursor-pointer hover:border-gray-600 transition-all flex items-center gap-3 ${themeAccent === t.id ? 'border-cyan-500/50 bg-cyan-950/20' : 'border-gray-800'}`}
                         onClick={() => handleThemeChange(t.id)}
                       >
-                        <div className="theme-color-dot" style={{ backgroundColor: t.hex }} />
-                        <div className="theme-card-info">
-                          <span className="theme-name">{t.name}</span>
-                          <span className="theme-desc">{t.desc}</span>
+                        <div className="w-6 h-6 rounded-full shrink-0 ring-2 ring-white/10" style={{ backgroundColor: t.hex }} />
+                        <div className="flex flex-col">
+                          <span className="text-sm font-semibold text-gray-200">{t.name}</span>
+                          <span className="text-[11px] text-gray-500">{t.desc}</span>
                         </div>
-                        {themeAccent === t.id && <span className="theme-check">&bull;</span>}
+                        {themeAccent === t.id && <span className="text-cyan-400 ml-auto">&bull;</span>}
                       </div>
                     ))}
                   </div>
                 </div>
 
-                <div className="setting-group">
-                  <label className="setting-label">Reasoning &amp; Chain-of-Thought</label>
-                  <label className="checkbox-container">
-                    <input
-                      type="checkbox"
-                      checked={showThinking}
-                      onChange={(e) => setShowThinking(e.target.checked)}
+                <div className="space-y-2">
+                  <label className="text-[13px] font-semibold text-gray-300 uppercase tracking-wider flex items-center justify-between">Reasoning &amp; Chain-of-Thought</label>
+                  <div className="flex items-center gap-3">
+                    <Switch
+                      isSelected={showThinking}
+                      onChange={setShowThinking}
                     />
-                    <span className="checkbox-text">Display live &lt;thinking&gt; steps in conversation bubbles</span>
-                  </label>
-                  <p className="setting-help">Allows inspecting multi-agent thought streams and step-by-step logic.</p>
+                    <span className="text-sm text-gray-300">Display live &lt;thinking&gt; steps in conversation bubbles</span>
+                  </div>
+                  <p className="text-[11px] text-gray-500 mt-1">Allows inspecting multi-agent thought streams and step-by-step logic.</p>
                 </div>
               </div>
             )}
@@ -487,15 +496,15 @@ const SettingsModal = ({ onClose, onSettingsUpdated }) => {
 
         {/* Modal Status Banner */}
         {saveStatus && (
-          <div className={`settings-status ${saveStatus.includes('success') ? 'success' : 'error'}`}>
+          <div className={`flex items-center px-6 py-3 text-sm font-medium border-y ${saveStatus.includes('success') ? 'text-emerald-400 bg-emerald-950/30 border-emerald-900/50' : 'text-red-400 bg-red-950/30 border-red-900/50'}`}>
             {saveStatus}
           </div>
         )}
 
         {/* Modal Footer */}
-        <div className="settings-footer">
-          <button className="cancel-btn" onClick={onClose}>Discard</button>
-          <button className="save-btn" onClick={handleSave} disabled={isSaving}>
+        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-800/60 bg-[#0c0c0e]">
+          <button className="px-4 py-2 text-sm font-medium text-gray-400 hover:text-white transition-colors" onClick={onClose}>Discard</button>
+          <button className="flex items-center gap-2 px-5 py-2 text-sm font-semibold text-black bg-cyan-400 hover:bg-cyan-300 rounded-lg shadow-[0_0_15px_rgba(0,229,255,0.3)] transition-all" onClick={handleSave} disabled={isSaving}>
             <Save size={16} /> {isSaving ? 'Committing...' : 'Save &amp; Apply'}
           </button>
         </div>

@@ -187,30 +187,9 @@ def cmd_ask(args, state_ctx):
         
     return True
 
-@registry.register("mode", "Switch between 'role' (Agent) and 'basic <ModelName>' (Direct Chat) modes.")
+@registry.register("mode", "View the active platform operation mode.")
 def cmd_mode(args, state_ctx):
-    parts = args.strip().split()
-    if not parts:
-        console.print(f"[bold cyan]Current Mode:[/] {getattr(state_ctx, 'mode', 'role')}")
-        if getattr(state_ctx, 'mode', 'role') == "basic":
-            console.print(f"[bold cyan]Basic Model:[/] {getattr(state_ctx, 'basic_model', 'None')}")
-        return True
-        
-    requested_mode = parts[0].lower()
-    
-    if requested_mode == "role":
-        state_ctx.mode = "role"
-        console.print("[bold green]Success:[/] Switched to Multi-Agent Role Mode.")
-    elif requested_mode == "basic":
-        if len(parts) < 2:
-            console.print("[bold red]Usage:[/] /mode basic <ModelName>")
-            return True
-        state_ctx.mode = "basic"
-        state_ctx.basic_model = parts[1]
-        console.print(f"[bold green]Success:[/] Switched to Basic Mode with model '{state_ctx.basic_model}'.")
-    else:
-        console.print("[bold red]Error:[/] Mode must be 'role' or 'basic'.")
-        
+    console.print("[bold cyan]Platform Mode:[/] Multi-Agent Workplace (All queries are orchestrated via the Supervisor and active Workplace Specialists).")
     return True
 
 @registry.register("history", "View and switch between past chat sessions.")

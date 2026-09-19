@@ -83,79 +83,81 @@ function ThinkingBlock({ thinking, duration }) {
   }
 
   return (
-    <div className={`reasoning-trace-wrapper ${isExpanded ? 'is-expanded' : 'is-collapsed'}`}>
-      {/* Top Blue-Outlined Pill Header (Matching Image 1) */}
+    <div className="border border-gray-800 rounded-xl bg-[#0a0a0a] overflow-hidden mb-3">
+      {/* Top Header */}
       <div 
-        className="reasoning-summary-pill"
+        className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-gray-800/30 transition-colors"
         onClick={() => setIsExpanded(!isExpanded)}
         title="Click to toggle reasoning trace"
       >
-        <span className="reasoning-summary-text">{summaryTitle}</span>
-        <div className="reasoning-pill-chevron">
+        <div className="flex items-center gap-2 text-sm text-gray-400">
+          <span>{summaryTitle}</span>
+        </div>
+        <div className="text-gray-500 transition-transform">
           {isExpanded ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
         </div>
       </div>
 
-      {/* Expanded Details Card (Matching Image 1 & Image 2) */}
+      {/* Expanded Details Card */}
       {isExpanded && (
-        <div className="reasoning-details-card">
-          <div className="reasoning-details-header">
-            <span className="reasoning-duration-label">
+        <div className="px-4 py-3 border-t border-gray-800/60">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs text-gray-600 font-mono">
               Thought for {formattedDuration}
             </span>
             <button 
-              className="reasoning-copy-btn" 
+              className="p-1.5 text-gray-500 hover:text-white transition-colors rounded flex items-center gap-1" 
               onClick={handleCopy}
               title="Copy reasoning trace"
             >
-              {copied ? <Check size={11} className="text-emerald" /> : <Copy size={11} />}
-              <span>{copied ? 'Copied' : 'Copy'}</span>
+              {copied ? <Check size={11} className="text-emerald-400" /> : <Copy size={11} />}
+              <span className={copied ? "text-xs text-emerald-400" : "text-xs"}>{copied ? 'Copied' : 'Copy'}</span>
             </button>
           </div>
 
-          {/* Thought Sentences (Matching Image 1) */}
+          {/* Thought Sentences */}
           {thoughtLines.length > 0 && (
-            <div className="reasoning-lines-list">
+            <div className="text-sm text-gray-300 font-mono leading-relaxed mb-4">
               {thoughtLines.map((line, idx) => (
-                <div key={idx} className="reasoning-thought-line">
+                <div key={idx} className="mb-1">
                   {line}
                 </div>
               ))}
             </div>
           )}
 
-          {/* Tool Action Traces (Matching Image 2: "Ran command >", "Searched web >") */}
+          {/* Tool Action Traces */}
           {toolActions.length > 0 && (
-            <div className="reasoning-actions-list">
+            <div className="space-y-2 mt-4 pt-3 border-t border-gray-800/30">
               {toolActions.map((tool, idx) => {
                 const isToolOpen = expandedToolIdx === idx;
-                let icon = <Terminal size={13} className="action-icon action-icon-term" />;
+                let icon = <Terminal size={13} className="shrink-0 mt-0.5 text-cyan-400" />;
                 let label = `Ran command: ${tool.name}`;
                 
                 if (tool.name.toLowerCase().includes('search') || tool.name.toLowerCase().includes('web')) {
-                  icon = <Globe size={13} className="action-icon action-icon-web" />;
+                  icon = <Globe size={13} className="shrink-0 mt-0.5 text-cyan-400" />;
                   label = `Live Web Search: ${tool.name}`;
                 } else if (tool.name.toLowerCase().includes('file')) {
-                  icon = <FileCode size={13} className="action-icon action-icon-file" />;
+                  icon = <FileCode size={13} className="shrink-0 mt-0.5 text-cyan-400" />;
                   label = `File operation: ${tool.name}`;
                 }
 
                 return (
-                  <div key={tool.id} className="reasoning-action-item">
+                  <div key={tool.id} className="flex flex-col border-b border-gray-800/30 last:border-0 pb-2">
                     <div 
-                      className="reasoning-action-row"
+                      className="flex items-center justify-between cursor-pointer py-1"
                       onClick={() => toggleToolDetail(idx)}
                     >
-                      <div className="reasoning-action-left">
+                      <div className="flex items-start gap-3 flex-1">
                         {icon}
-                        <span className="reasoning-action-title">{label}</span>
+                        <span className="text-sm font-medium text-gray-200">{label}</span>
                       </div>
-                      <div className="reasoning-action-chevron">
+                      <div className="text-gray-500">
                         {isToolOpen ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
                       </div>
                     </div>
                     {isToolOpen && tool.content && (
-                      <pre className="reasoning-action-output">{tool.content}</pre>
+                      <pre className="text-xs text-gray-500 font-mono mt-2 bg-gray-900/50 p-2 rounded overflow-x-auto">{tool.content}</pre>
                     )}
                   </div>
                 );

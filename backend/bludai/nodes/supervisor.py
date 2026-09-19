@@ -1,5 +1,6 @@
 import json
 import re
+from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, Field, ConfigDict
 from langchain_core.messages import SystemMessage, AIMessage
@@ -182,20 +183,26 @@ def supervisor_node(state: AgentState, config: RunnableConfig = None) -> dict:
     custom_rules = settings_manager.get_system_instructions()
     rules_section = f"\n[USER CUSTOM INSTRUCTIONS / PLATFORM RULES]:\n{custom_rules}\n" if custom_rules else ""
 
+    now_str = datetime.now().strftime("%A, %B %d, %Y %H:%M:%S")
+
     system_prompt = f"""You are the Supervisor (Orchestrator) for the BLUDAI Multi-Agent Workplace.
 Your job is to coordinate the active specialist agents in the workplace to fulfill the user's request.
+
+[SYSTEM CONTEXT]:
+- Current Date and Time: {now_str}
 
 Available Specialists in this Workplace:
 {roster_section}
 
 Operational Guidelines:
-1. Break down the user's request into a checklist of subtasks and track them in `checklist`.
-2. Inspect the current message history and tools output. Mark tasks as completed [x] or pending [ ].
-3. Decide the next specialist node to call based on their role and tools:
+1. Fast-Path / Direct Answers: If the user's request is a direct question, greeting, general knowledge inquiry, or can be answered using the provided system context (such as current date and time), facts, or memory, DO NOT delegate to workers. Immediately set `next_node` to 'FINISH' and write the complete answer in `instruction`.
+2. Multi-step Tasks: Break down complex requests into a checklist of subtasks and track them in `checklist`.
+3. Inspect message history and tools output. Mark tasks as completed [x] or pending [ ].
+4. Delegate to the appropriate specialist based on role and tools:
    - Select one of the available specialists: {options_str}.
-   - Choose 'FINISH' when all tasks on the checklist are complete or when you can answer the user directly.
-4. Delegate instructions clearly to the selected specialist. Do not try to perform specialized worker tasks yourself—delegate to the appropriate agent.
-5. When the user asks for live internet news, recent releases, current benchmarks, external documentation, or real-time web information, delegate to 'Researcher' to use 'web_search'.
+   - Choose 'FINISH' when all tasks are complete or when you can answer the user directly.
+5. Web Research: When the user asks for live internet news, recent releases, current benchmarks, external documentation, or real-time web information, delegate directly to 'Researcher' (who has 'web_search'). NEVER instruct Executor to run terminal commands for dates or internet searches.
+6. Terminal Commands: Only delegate to 'Executor' for actual codebase commands, running tests, compiling, or installing packages. Never use Executor to find the current date or time (use the system context above).
 
 RESPONSE FORMAT:
 You MUST respond with a JSON object conforming to this schema:

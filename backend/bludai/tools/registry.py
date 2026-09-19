@@ -5,6 +5,7 @@ from bludai.tools.file_tools import create_file, read_file, replace_content
 from bludai.tools.shell_tools import run_terminal_command
 from bludai.tools.vector_tools import semantic_code_search, index_project_codebase
 from bludai.tools.web_tools import web_search
+from bludai.tools.time_tools import get_current_time
 
 ALL_TOOLS: Dict[str, BaseTool] = {
     "create_file": create_file,
@@ -14,6 +15,7 @@ ALL_TOOLS: Dict[str, BaseTool] = {
     "semantic_code_search": semantic_code_search,
     "index_project_codebase": index_project_codebase,
     "web_search": web_search,
+    "get_current_time": get_current_time,
 }
 
 TOOL_METADATA: List[Dict[str, Any]] = [
@@ -64,6 +66,13 @@ TOOL_METADATA: List[Dict[str, Any]] = [
         "name": "Live Web Search",
         "category": "Internet Search",
         "description": "Search the live web in real-time for current news, facts, and documentation.",
+        "risk": "low"
+    },
+    {
+        "id": "get_current_time",
+        "name": "Current Date & Time",
+        "category": "System",
+        "description": "Fetch the current local date, time, and day of the week directly without terminal execution.",
         "risk": "low"
     }
 ]

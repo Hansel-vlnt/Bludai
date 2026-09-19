@@ -9,7 +9,6 @@ import { ChevronRight, ChevronDown, Terminal, Globe, Loader2 } from 'lucide-reac
  */
 function ThinkingIndicator({ 
   elapsedSeconds = 0, 
-  mode = 'role',
   liveStatus = '',
   liveThoughts = [],
   liveTools = []
@@ -28,78 +27,72 @@ function ThinkingIndicator({
       const firstLine = raw.split('\n')[0] || '';
       statusText = firstLine.length > 60 ? firstLine.slice(0, 58) + '...' : firstLine || 'Formulating reasoning trace...';
     } else {
-      statusText = mode === 'role' ? 'Supervisor coordinating workspace agents...' : 'Analyzing query & formulating reasoning trace...';
+      statusText = 'Supervisor coordinating workspace agents...';
     }
   }
 
   const formattedDuration = `${elapsedSeconds.toFixed(1)}s`;
 
   return (
-    <div className={`reasoning-trace-wrapper is-live ${isExpanded ? 'is-expanded' : 'is-collapsed'}`}>
-      {/* Top Blue-Outlined Pill Header (Matching Image 1) */}
+    <div className="border border-gray-800 rounded-xl bg-[#0a0a0a] overflow-hidden mb-3">
+      {/* Top Header */}
       <div 
-        className="reasoning-summary-pill live-pill"
+        className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-gray-800/30 transition-colors"
         onClick={() => setIsExpanded(!isExpanded)}
         title="Click to toggle live reasoning stream"
       >
-        <div className="reasoning-summary-left">
-          <span className="reasoning-pulse-dot" />
-          <span className="reasoning-summary-text">{statusText}</span>
+        <div className="flex items-center gap-3 text-sm text-gray-300">
+          <div className="w-4 h-4 border-2 border-t-cyan-500 border-gray-800 rounded-full animate-spin" />
+          <span>{statusText}</span>
         </div>
-        <div className="reasoning-pill-chevron">
-          <span className="reasoning-live-timer">{formattedDuration}</span>
+        <div className="flex items-center gap-3 text-gray-500">
+          <span className="text-xs text-gray-600 font-mono">{formattedDuration}</span>
           {isExpanded ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
         </div>
       </div>
 
-      {/* Live Expanded Trace (Matching Image 1 & Image 2) */}
+      {/* Live Expanded Trace */}
       {isExpanded && (
-        <div className="reasoning-details-card">
-          <div className="reasoning-details-header">
-            <span className="reasoning-duration-label">
+        <div className="px-4 py-3 border-t border-gray-800/60">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs text-gray-600 font-mono">
               Thinking for {formattedDuration}
             </span>
-            <Loader2 size={12} className="animate-spin text-sky" />
+            <Loader2 size={12} className="animate-spin text-cyan-400" />
           </div>
 
           {/* Live Thoughts Stream */}
-          {liveThoughts.length > 0 ? (
-            <div className="reasoning-lines-list">
-              {liveThoughts.map((t, idx) => (
-                <div key={idx} className="reasoning-thought-line">
+          <div className="space-y-2 mt-2">
+            {liveThoughts.length > 0 ? (
+              liveThoughts.map((t, idx) => (
+                <div key={idx} className="flex items-start gap-2 text-sm text-gray-400 pl-2 border-l-2 border-gray-800">
                   {t.content.replace(/^[\s•*-]+/, '')}
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="reasoning-lines-list">
-              <div className="reasoning-thought-line text-muted-subtle">
+              ))
+            ) : (
+              <div className="flex items-start gap-2 text-sm text-gray-400 pl-2 border-l-2 border-gray-800 text-gray-500">
                 Interpreting request and evaluating architectural requirements...
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
-          {/* Live Running Tools (Matching Image 2) */}
+          {/* Live Running Tools */}
           {liveTools.length > 0 && (
-            <div className="reasoning-actions-list">
+            <div className="space-y-2 mt-4 pt-3 border-t border-gray-800/30">
               {liveTools.map((tool, idx) => {
-                let icon = <Terminal size={13} className="action-icon action-icon-term" />;
+                let icon = <Terminal size={13} className="shrink-0 text-cyan-400" />;
                 let label = `Executing ${tool.name}...`;
 
                 if (tool.name.toLowerCase().includes('search') || tool.name.toLowerCase().includes('web')) {
-                  icon = <Globe size={13} className="action-icon action-icon-web" />;
+                  icon = <Globe size={13} className="shrink-0 text-cyan-400" />;
                   label = `Live Web Search: ${tool.name}...`;
                 }
 
                 return (
-                  <div key={idx} className="reasoning-action-item is-running">
-                    <div className="reasoning-action-row">
-                      <div className="reasoning-action-left">
-                        {icon}
-                        <span className="reasoning-action-title">{label}</span>
-                      </div>
-                      <span className="reasoning-action-status">{tool.status || 'running'}</span>
-                    </div>
+                  <div key={idx} className="flex items-center gap-2 text-xs text-gray-500 bg-gray-900/50 rounded px-2 py-1">
+                    {icon}
+                    <span className="font-medium text-gray-300">{label}</span>
+                    <span className="ml-auto text-cyan-500 animate-pulse">{tool.status || 'running'}</span>
                   </div>
                 );
               })}

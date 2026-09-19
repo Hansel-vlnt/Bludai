@@ -11,5 +11,3 @@ class AgentState(TypedDict, total=False):
     next: str
     # The temperature for model generation (0.0 to 1.0)
     temperature: float
-    # Basic mode specific fields
-    basic_model: str
