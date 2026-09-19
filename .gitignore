@@ -86,6 +86,9 @@ plan.md
 task.md
 .ua/
 
-# --- Root Loose Screenshots (docs/screenshots/ is preserved) ---
-/*.png
+# --- Screenshots & Images ---
+*.png
+docs/screenshots/
+screenshots/
+
 
