@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { Send, Bot, User, Cpu, Users } from 'lucide-react';
+import { Send, Bot, User, Cpu, Users, Activity, Sparkles } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import ModelSelector from './components/ModelSelector';
 import SettingsModal from './components/SettingsModal';
@@ -8,6 +8,7 @@ import AgentWorkplaceModal from './components/AgentWorkplaceModal';
 import ThinkingBlock from './components/ThinkingBlock';
 import ThinkingIndicator from './components/ThinkingIndicator';
 import TerminalApprovalCard from './components/TerminalApprovalCard';
+import TelemetryPanel from './components/TelemetryPanel';
 import { extractThinking } from './utils/thinkingParser';
 import './index.css';
 
@@ -25,7 +26,13 @@ function App() {
   const [liveTools, setLiveTools] = useState([]);
   const [pendingInterrupt, setPendingInterrupt] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
-  const [showWorkplace, setShowWorkplace] = useState(false);
+  const [showWorkplace, setShowWorkplace] = useState(() => {
+    return typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('modal') === 'workplace';
+  });
+  const [showTelemetry, setShowTelemetry] = useState(true);
+  const [lastTokens, setLastTokens] = useState(null);
+  const [lastDuration, setLastDuration] = useState(null);
+  const [agents, setAgents] = useState([]);
   const [selectedModel, setSelectedModel] = useState('');
   const [temperature, setTemperature] = useState(0.5);
   const [availableModels, setAvailableModels] = useState([]);
@@ -37,10 +44,21 @@ function App() {
     const init = async () => {
       await fetchSettings();
       await fetchModels();
+      await fetchAgents();
       fetchSessions();
     };
     init();
   }, []);
+
+  const fetchAgents = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/agents`);
+      const data = await res.json();
+      if (data && data.data) setAgents(data.data);
+    } catch (err) {
+      console.error("Failed to load agents", err);
+    }
+  };
 
   const fetchSettings = async () => {
     try {
@@ -187,8 +205,14 @@ function App() {
             } else if (event.type === 'done') {
               if (event.reply) replyContent = event.reply;
               if (event.thinking) finalThinking = event.thinking;
-              if (event.duration) calcDuration = event.duration;
-              if (event.tokens) calcTokens = event.tokens;
+              if (event.duration) {
+                calcDuration = event.duration;
+                setLastDuration(event.duration);
+              }
+              if (event.tokens) {
+                calcTokens = event.tokens;
+                setLastTokens(event.tokens);
+              }
             } else if (event.type === 'error') {
               throw new Error(event.error);
             }
@@ -204,6 +228,10 @@ function App() {
     }
 
     const dur = calcDuration || parseFloat(((Date.now() - startTime) / 1000).toFixed(1));
+    setLastDuration(dur);
+    if (calcTokens && (calcTokens.total || calcTokens.input)) {
+      setLastTokens(calcTokens);
+    }
     setMessages(prev => [...prev, { 
       role: 'assistant', 
       content: replyContent || "Task completed.",
@@ -373,7 +401,7 @@ function App() {
   };
 
   return (
-    <div className="flex w-full h-full bg-[#11111b] text-[#cdd6f4] font-sans">
+    <div className="flex w-full h-full bg-[#11111a] text-[#cdd6f4] font-sans overflow-hidden">
       {showSettings && (
         <SettingsModal 
           onClose={() => setShowSettings(false)} 
@@ -395,10 +423,14 @@ function App() {
       {showWorkplace && (
         <AgentWorkplaceModal 
           models={availableModels}
-          onClose={() => setShowWorkplace(false)}
+          onClose={() => {
+            setShowWorkplace(false);
+            fetchAgents();
+          }}
         />
       )}
       
+      {/* Panel 1: Left Fleet Roster & Sessions */}
       <Sidebar 
         sessions={sessions} 
         currentThread={currentThread} 
@@ -407,20 +439,23 @@ function App() {
         handleExit={handleExit} 
         setShowSettings={setShowSettings}
         setShowWorkplace={setShowWorkplace}
+        agents={agents}
       />
 
-      <div className="flex-1 flex flex-col h-full relative">
-        <div className="h-[65px] px-6 flex items-center justify-between border-b border-[#313244] bg-[#181825]/80 backdrop-blur-md shrink-0">
+      {/* Panel 2: Center Task Stream & Interventions */}
+      <div className="flex-1 flex flex-col h-full relative bg-[#161622] overflow-hidden min-w-0">
+        {/* Center Header */}
+        <div className="h-[65px] px-6 flex items-center justify-between border-b border-[#2d2e42] bg-[#11111a] shrink-0">
           <div className="flex items-center gap-3">
             <span 
-              className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-md bg-[#cba6f7]/15 text-[#cba6f7] border border-[#cba6f7]/30" 
-              title="Autonomous Supervisor orchestrating specialized agents"
+              className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-xl bg-[#cba6f7]/15 text-[#cba6f7] border border-[#cba6f7]/30" 
+              title="Autonomous Supervisor coordinating specialized worker agents"
             >
-              ⚡ Multi-Agent Workplace
+              ⚡ Multi-Agent Orchestration
             </span>
             <button
               onClick={() => setShowWorkplace(true)}
-              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-md text-[#cba6f7] bg-[#cba6f7]/15 border border-[#cba6f7]/30 cursor-pointer transition-all hover:bg-[#cba6f7]/25"
+              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl text-[#cdd6f4] bg-[#222336] border border-[#383a54] hover:border-[#cba6f7] hover:text-[#cba6f7] cursor-pointer transition-all shadow-sm"
               title="Manage dynamic multi-agent roles and tool whitelisting"
             >
               <Users size={14} /> Workplace Roles
@@ -429,21 +464,37 @@ function App() {
 
           <div className="flex items-center gap-3">
             <div 
-              className="flex items-center gap-2 text-xs font-semibold text-[#a6adc8] bg-[#11111b]/70 px-3 py-1.5 border border-[#313244] rounded shadow-inner"
+              className="flex items-center gap-2 text-xs font-semibold text-[#a6adc8] bg-[#141420] px-3 py-1.5 border border-[#2d2e42] rounded-xl shadow-inner"
               title={availableModels.length > 0 ? `${availableModels.length} models loaded via 9Router proxy` : "9Router offline or unreachable"}
             >
               <span className={`w-2 h-2 rounded-full ${availableModels.length > 0 ? 'bg-[#a6e3a1] animate-pulse' : 'bg-[#f9e2af]'}`}></span>
               <span>9Router: {availableModels.length > 0 ? `${availableModels.length} Models` : 'Offline'}</span>
             </div>
+            
+            <button
+              onClick={() => setShowTelemetry(prev => !prev)}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
+                showTelemetry 
+                  ? 'bg-[#cba6f7]/20 border-[#cba6f7]/50 text-[#cba6f7] shadow-sm' 
+                  : 'bg-[#222336] border-[#383a54] text-[#a6adc8] hover:text-[#cdd6f4]'
+              }`}
+              title="Toggle Live Telemetry & Tool Output (Right Panel)"
+            >
+              <Activity size={14} className={showTelemetry ? 'text-[#cba6f7]' : 'text-[#a6adc8]'} />
+              <span>Telemetry</span>
+            </button>
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6 scroll-smooth bg-[#11111b]" ref={chatRef}>
+        {/* Message Stream */}
+        <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6 scroll-smooth bg-[#161622]" ref={chatRef}>
           {messages.length === 0 && (
-            <div className="flex flex-col items-center justify-center h-full text-center opacity-50">
-              <Cpu size={48} className="mb-4 text-[#585b70]" />
-              <h2 className="text-xl font-semibold text-[#cdd6f4] mb-2">How can I help you today?</h2>
-              <p className="text-sm text-[#a6adc8]">Type a message to start communicating with Bludai.</p>
+            <div className="flex flex-col items-center justify-center h-full text-center opacity-60">
+              <div className="w-16 h-16 rounded-2xl bg-[#222336] border border-[#383a54] flex items-center justify-center mb-4 shadow-lg shadow-black/40">
+                <Cpu size={32} className="text-[#cba6f7]" />
+              </div>
+              <h2 className="text-xl font-bold text-[#cdd6f4] mb-2">Bludai Multi-Agent Workspace</h2>
+              <p className="text-sm text-[#a6adc8] max-w-md">Supervisor orchestrates Developer, Executor, and Research specialists to complete complex workflows.</p>
             </div>
           )}
           
@@ -459,10 +510,10 @@ function App() {
                   {msg.role === 'user' ? <User size={14} /> : <Bot size={14} />}
                   {msg.role === 'user' ? 'You' : 'Bludai'}
                 </div>
-                <div className={`max-w-[85%] rounded-xl px-4 py-3 text-sm leading-relaxed ${
+                <div className={`max-w-[85%] rounded-2xl px-6 py-4 text-sm leading-relaxed ${
                   msg.role === 'user' 
-                    ? 'bg-[#1e1e2e] border border-[#cba6f7]/40 text-[#cdd6f4]' 
-                    : 'bg-[#181825] border border-[#313244] text-[#cdd6f4]'
+                    ? 'bg-[#282a3f] border border-[#cba6f7]/40 text-[#cdd6f4] shadow-md shadow-black/30' 
+                    : 'bg-[#222336] border border-[#383a54] text-[#cdd6f4] shadow-lg shadow-black/40'
                 }`}>
                   {thinking && (
                     <ThinkingBlock thinking={thinking} duration={msg.duration} />
@@ -473,9 +524,9 @@ function App() {
                     </div>
                   )}
                   {isAi && (msg.tokens || msg.duration) && (
-                    <div className="mt-3 pt-2 border-t border-[#313244]/60">
+                    <div className="mt-3 pt-2.5 border-t border-[#35374e]">
                       <div 
-                        className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-[#11111b]/50 text-[11px] text-[#a6adc8] font-mono" 
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#141420] text-[11px] text-[#a6adc8] font-mono border border-[#2d2e42]" 
                         title={msg.tokens ? `Prompt tokens: ${msg.tokens.input?.toLocaleString()} | Completion: ${msg.tokens.output?.toLocaleString()}` : ''}
                       >
                         <Cpu size={12} className="text-[#6c7086]" />
@@ -496,7 +547,7 @@ function App() {
           {isTyping && (
             <div className="flex flex-col gap-1.5 items-start">
               <div className="flex items-center gap-1.5 text-xs font-semibold text-[#a6adc8] px-1"><Bot size={14} /> Bludai</div>
-              <div className="max-w-[85%] rounded-xl px-4 py-3 text-sm border border-[#313244] bg-[#181825]">
+              <div className="max-w-[85%] rounded-2xl px-5 py-4 text-sm border border-[#383a54] bg-[#222336] shadow-lg shadow-black/40">
                 <ThinkingIndicator 
                   elapsedSeconds={elapsedSeconds} 
                   liveStatus={liveStatus}
@@ -515,22 +566,23 @@ function App() {
           )}
         </div>
 
-        <div className="border-t border-[#313244] bg-[#181825]/90 backdrop-blur-md px-6 py-4 space-y-3">
+        {/* Bottom Input Area */}
+        <div className="border-t border-[#2d2e42] bg-[#11111a] px-6 pt-3.5 pb-6 space-y-3 shrink-0">
           <div className="flex items-center gap-4 flex-wrap">
             <ModelSelector 
               selectedModel={selectedModel}
               setSelectedModel={setSelectedModel}
               availableModels={availableModels}
-              label="Default / Supervisor Model"
+              label="Supervisor Model"
               onRefresh={() => fetchModels(true)}
               isRefreshing={isRefreshingModels}
             />
           </div>
           
-          <div className="flex items-center gap-2 bg-[#1e1e2e] border border-[#313244] rounded-xl px-3 py-2 focus-within:border-[#cba6f7] focus-within:ring-1 focus-within:ring-[#cba6f7]/30 transition-all">
+          <div className="flex items-center gap-2 bg-[#222336] border border-[#383a54] rounded-2xl px-4 py-3 focus-within:border-[#cba6f7] focus-within:ring-2 focus-within:ring-[#cba6f7]/25 shadow-lg shadow-black/40 transition-all">
             <textarea
               className="flex-1 bg-transparent border-none outline-none text-[#cdd6f4] text-sm resize-none font-sans placeholder:text-[#6c7086]"
-              placeholder={pendingInterrupt ? "Approve or reject terminal command first..." : "Ask Bludai..."}
+              placeholder={pendingInterrupt ? "Approve or reject terminal command first..." : "Ask Bludai to coordinate agents..."}
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               onKeyDown={handleKeyDown}
@@ -538,7 +590,7 @@ function App() {
               rows={1}
             />
             <button 
-              className="p-2 text-[#cba6f7] hover:text-[#b4befe] disabled:opacity-30 disabled:cursor-not-allowed transition-colors rounded-lg hover:bg-[#cba6f7]/20" 
+              className="p-2 text-[#cba6f7] hover:text-[#b4befe] disabled:opacity-30 disabled:cursor-not-allowed transition-colors rounded-xl hover:bg-[#cba6f7]/20 cursor-pointer" 
               onClick={sendMessage}
               disabled={!inputText.trim() || isTyping || !!pendingInterrupt}
               title="Send prompt"
@@ -548,6 +600,19 @@ function App() {
           </div>
         </div>
       </div>
+
+      {/* Panel 3: Right Live Telemetry & Tool Output */}
+      <TelemetryPanel 
+        isOpen={showTelemetry}
+        onClose={() => setShowTelemetry(false)}
+        isTyping={isTyping}
+        elapsedSeconds={elapsedSeconds}
+        liveStatus={liveStatus}
+        liveTools={liveTools}
+        liveThoughts={liveThoughts}
+        lastTokens={lastTokens}
+        lastDuration={lastDuration}
+      />
     </div>
   );
 }

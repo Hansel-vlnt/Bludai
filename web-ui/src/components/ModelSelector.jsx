@@ -61,7 +61,7 @@ const ModelSelector = ({
         title={`Active Model: ${safeSelected}`}
       >
         <Cpu size={14} className="text-gray-500" />
-        <span className="text-gray-500">{label}:</span> 
+        {label ? <span className="text-gray-500">{label}:</span> : null}
         <strong className="font-semibold text-gray-200">{displayName}</strong>
       </button>
       

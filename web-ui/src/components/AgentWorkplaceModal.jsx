@@ -4,13 +4,38 @@ import {
   Bot, Code, Terminal, ShieldCheck, Search, Wrench, 
   Cpu, Check, AlertCircle, Sparkles, Sliders, MoreVertical
 } from 'lucide-react';
+import { Switch as AriaSwitch } from 'react-aria-components';
 import ModelSelector from './ModelSelector';
-import { Switch } from '@/components/base/switch/switch';
 import { Badge } from '@/components/base/badges/badge';
 import { Dropdown, DropdownTrigger, DropdownPopover, DropdownItem, DropdownDivider } from '@/components/base/dropdown/dropdown';
 import { Input } from '@/components/base/input/input';
 import { Textarea } from '@/components/base/textarea/textarea';
 const API_BASE = 'http://localhost:8000/api';
+
+function Toggle({ isChecked, onChange, label }) {
+  return (
+    <AriaSwitch
+      isSelected={isChecked}
+      onChange={onChange}
+      aria-label={label}
+      className="group inline-flex items-center cursor-pointer select-none focus:outline-none"
+    >
+      {({ isSelected, isFocusVisible }) => (
+        <span
+          className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+            isFocusVisible ? 'ring-2 ring-[#cba6f7] ring-offset-2 ring-offset-[#161622]' : ''
+          } ${isSelected ? 'bg-[#a6e3a1]' : 'bg-[#313244]'}`}
+        >
+          <span
+            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full shadow-md transition duration-200 ease-in-out ${
+              isSelected ? 'translate-x-5 bg-[#11111b]' : 'translate-x-0 bg-[#a6adc8]'
+            }`}
+          />
+        </span>
+      )}
+    </AriaSwitch>
+  );
+}
 
 const ICON_MAP = {
   Code: Code,
@@ -234,9 +259,9 @@ function AgentWorkplaceModal({ onClose, models = [] }) {
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200">
-      <div className="w-full max-w-6xl max-h-[95vh] bg-[#181825] border border-[#313244] rounded-2xl shadow-2xl flex flex-col overflow-hidden ring-1 ring-white/5">
+      <div className="w-full max-w-6xl max-h-[95vh] bg-[#161622] border border-[#2d2e42] rounded-3xl shadow-2xl shadow-black/80 flex flex-col overflow-hidden ring-1 ring-white/10">
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#313244] bg-[#11111b]">
+        <div className="flex items-center justify-between px-7 py-4.5 border-b border-[#2d2e42] bg-[#11111a] rounded-t-3xl">
           <div className="flex flex-col gap-1">
             <h3 className="text-lg font-semibold text-[#cdd6f4] flex items-center gap-2">
               <span className="text-[#cba6f7] font-mono font-bold">&gt;_</span> 
@@ -260,7 +285,7 @@ function AgentWorkplaceModal({ onClose, models = [] }) {
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar bg-[#181825]">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar bg-[#161622]">
           {editingAgent ? (
             /* ================= EDIT / CREATE DRAWER ================= */
             <AgentEditorForm 
@@ -273,21 +298,21 @@ function AgentWorkplaceModal({ onClose, models = [] }) {
             />
           ) : (
             /* ================= ROSTER OVERVIEW GRID ================= */
-            <div className="p-6">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-[#313244]">
+            <div className="p-7">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-7 pb-5 border-b border-[#2d2e42]">
                 <div className="flex flex-col gap-1">
                   <div className="flex items-center gap-2">
-                    <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-[#a6e3a1]/15 text-[#a6e3a1] border border-[#a6e3a1]/30">
+                    <span className="px-3 py-1 text-xs font-semibold rounded-full bg-[#a6e3a1]/15 text-[#a6e3a1] border border-[#a6e3a1]/30">
                       {activeCount} / {agents.length} Enabled
                     </span>
                   </div>
-                  <p className="text-[13px] text-[#a6adc8]">Supervisor dynamically delegates tasks to active specialists below.</p>
+                  <p className="text-[13px] text-[#a6adc8] mt-1">Supervisor dynamically delegates tasks to active specialists below.</p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <button className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-[#a6adc8] bg-[#1e1e2e] border border-[#313244] rounded hover:bg-[#313244] hover:text-[#cdd6f4] transition-colors" onClick={handleResetDefaults} title="Reset to default agents">
+                <div className="flex items-center gap-2.5">
+                  <button className="flex items-center gap-2 px-3.5 py-2 text-xs font-medium text-[#a6adc8] bg-[#222336] border border-[#35374e] rounded-xl hover:bg-[#2d2e42] hover:text-[#cdd6f4] transition-colors" onClick={handleResetDefaults} title="Reset to default agents">
                     <RotateCcw size={14} /> Reset Defaults
                   </button>
-                  <button className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-[#11111b] bg-[#cba6f7] border border-[#cba6f7] rounded hover:bg-[#b4befe] shadow-[0_0_15px_rgba(203,166,247,0.25)] transition-all" onClick={startCreateNew}>
+                  <button className="flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-[#11111b] bg-[#cba6f7] border border-[#cba6f7] rounded-xl hover:bg-[#b4befe] shadow-[0_0_15px_rgba(203,166,247,0.25)] transition-all" onClick={startCreateNew}>
                     <Plus size={14} strokeWidth={2.5} /> New Specialist
                   </button>
                 </div>
@@ -299,67 +324,94 @@ function AgentWorkplaceModal({ onClose, models = [] }) {
                   Loading workplace roster...
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   {agents.map(agent => {
                     const IconComp = ICON_MAP[agent.icon] || Bot;
                     return (
                       <div 
                         key={agent.id} 
-                        className={`relative flex flex-col bg-[#1e1e2e] border border-[#313244] rounded-xl overflow-hidden transition-all duration-300 hover:border-[#585b70] shadow-lg shadow-black/30 ${!agent.enabled ? 'opacity-60 grayscale-[50%]' : ''}`}
+                        className={`group relative flex flex-col bg-[#222336] border ${agent.enabled ? 'border-[#383a54]' : 'border-[#2d2e42] opacity-80'} rounded-2xl overflow-hidden transition-all duration-300 hover:border-[#585b70] shadow-lg shadow-black/40 hover:shadow-xl hover:shadow-black/60 hover:-translate-y-0.5`}
                       >
-                        {/* Top Accent Line */}
-                        <div className="absolute top-0 left-0 right-0 h-1" style={{ background: agent.color || '#cba6f7' }}></div>
-                        
-                        <div className="p-4 flex-1 flex flex-col">
-                          <div className="flex justify-between items-start mb-3">
-                            <div className="flex items-center gap-3">
+                        <div className="p-6 flex-1 flex flex-col">
+                          <div className="flex justify-between items-start mb-4">
+                            <div className="flex items-center gap-3.5">
                               <div 
-                                className="flex items-center justify-center w-10 h-10 rounded-lg shrink-0" 
+                                className="flex items-center justify-center w-12 h-12 rounded-xl shrink-0 transition-transform duration-300 group-hover:scale-105" 
                                 style={{ 
-                                  background: `${agent.color || '#cba6f7'}15`, 
+                                  background: `${agent.color || '#cba6f7'}18`, 
                                   color: agent.color || '#cba6f7',
-                                  border: `1px solid ${agent.color || '#cba6f7'}30`
+                                  border: `1px solid ${agent.color || '#cba6f7'}40`,
+                                  boxShadow: `0 0 16px ${agent.color || '#cba6f7'}15`
                                 }}
                               >
-                                <IconComp size={20} />
+                                <IconComp size={22} />
                               </div>
                               <div className="flex flex-col">
-                                <span className="text-[15px] font-bold text-[#cdd6f4]">{agent.name}</span>
-                                <span className="text-[12px] text-[#a6adc8] font-medium">{agent.title || 'Specialist'}</span>
+                                <div className="flex items-center gap-2">
+                                  <span 
+                                    className="w-2.5 h-2.5 rounded-full shrink-0" 
+                                    style={{ 
+                                      backgroundColor: agent.enabled ? (agent.color || '#cba6f7') : '#585b70',
+                                      boxShadow: agent.enabled ? `0 0 8px ${agent.color || '#cba6f7'}` : 'none'
+                                    }}
+                                  />
+                                  <span className="text-[15px] font-bold text-[#cdd6f4] tracking-tight">{agent.name}</span>
+                                  <span className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full border ${
+                                    agent.enabled 
+                                      ? 'bg-[#a6e3a1]/15 text-[#a6e3a1] border-[#a6e3a1]/30' 
+                                      : 'bg-[#585b70]/20 text-[#6c7086] border-[#585b70]/30'
+                                  }`}>
+                                    {agent.enabled ? 'Active' : 'Standby'}
+                                  </span>
+                                </div>
+                                <span className="text-[12px] text-[#a6adc8] font-medium mt-0.5">{agent.title || 'Specialist'}</span>
                               </div>
                             </div>
                             
-                            <Switch 
-                              isSelected={agent.enabled} 
+                            <Toggle 
+                              isChecked={agent.enabled} 
                               onChange={() => handleToggleEnabled(agent)} 
-                              aria-label={agent.enabled ? 'Enabled in workplace' : 'Disabled'}
+                              label={agent.enabled ? `Disable ${agent.name}` : `Enable ${agent.name}`}
                             />
                           </div>
 
-                          <p className="text-[13px] text-[#a6adc8] mb-4 line-clamp-2 min-h-[40px]">
+                          <p className="text-[13px] text-[#a6adc8] leading-relaxed mb-5 min-h-[42px] line-clamp-2">
                             {agent.description || "Handles delegated subtasks from the Supervisor."}
                           </p>
 
-                          <div className="flex items-center justify-between mb-4 bg-[#11111b]/60 rounded px-3 py-2 border border-[#313244]">
-                            <span className="text-[11px] font-semibold text-[#a6adc8] uppercase tracking-wide">Model</span>
+                          <div className="flex items-center justify-between mb-4 bg-[#141420]/80 rounded-xl px-4 py-3 border border-[#2d2e42] shadow-inner">
+                            <div className="flex items-center gap-2">
+                              <Cpu size={14} className="text-[#a6adc8]" />
+                              <span className="text-[11px] font-semibold text-[#a6adc8] uppercase tracking-wider">Model</span>
+                            </div>
                             <div className="scale-90 origin-right">
                               <ModelSelector
                                 selectedModel={agent.model}
                                 setSelectedModel={(val) => handleQuickModelChange(agent, val)}
                                 availableModels={models}
-                                label="Model"
+                                label=""
                                 allowDefault={true}
                                 defaultLabel="Default (Workspace Model)"
                               />
                             </div>
                           </div>
 
-                          <div className="flex flex-col gap-1.5 mt-auto">
-                            <span className="text-[11px] font-semibold text-[#a6adc8] uppercase tracking-wide">Tools ({agent.tools ? agent.tools.length : 0})</span>
-                            <div className="flex flex-wrap gap-1.5">
+                          <div className="flex flex-col gap-2.5 mt-auto pt-3 mb-3">
+                            <div className="flex items-center gap-2">
+                              <Wrench size={13} className="text-[#a6adc8]" />
+                              <span className="text-[11px] font-semibold text-[#a6adc8] uppercase tracking-wider">
+                                Tools ({agent.tools ? agent.tools.length : 0})
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
                               {agent.tools && agent.tools.length > 0 ? (
                                 agent.tools.map(t => (
-                                  <span key={t} className="text-[10px] font-mono px-2 py-0.5 rounded border border-[#45475a] bg-[#313244] text-[#cdd6f4]">{t}</span>
+                                  <span 
+                                    key={t} 
+                                    className="text-[11px] font-mono px-2.5 py-1 rounded-lg border border-[#45475a]/70 bg-[#2b2c40] text-[#cdd6f4] shadow-xs"
+                                  >
+                                    {t}
+                                  </span>
                                 ))
                               ) : (
                                 <span className="text-[11px] italic text-[#585b70]">No tools (Analysis only)</span>
@@ -368,26 +420,26 @@ function AgentWorkplaceModal({ onClose, models = [] }) {
                           </div>
                         </div>
 
-                        <div className="flex border-t border-[#313244] bg-[#11111b]/40">
+                        <div className="flex border-t border-[#313244]/80 bg-[#181827]/70">
                           <button 
-                            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium text-[#a6adc8] hover:text-[#cdd6f4] hover:bg-[#313244]/50 transition-colors" 
+                            className="flex-1 flex items-center justify-center gap-2 py-3 text-xs font-semibold text-[#a6adc8] hover:text-[#cdd6f4] hover:bg-[#313244]/50 transition-colors" 
                             onClick={() => setEditingAgent({ ...agent, isNew: false })}
                           >
-                            <Edit2 size={13} /> Edit
+                            <Edit2 size={13} /> Edit Specialist
                           </button>
                           
                           <Dropdown>
-                            <DropdownTrigger className="flex items-center justify-center px-4 border-l border-[#313244] text-[#a6adc8] hover:text-[#cdd6f4] hover:bg-[#313244]/50 transition-colors outline-none">
+                            <DropdownTrigger className="flex items-center justify-center px-4 border-l border-[#313244]/80 text-[#a6adc8] hover:text-[#cdd6f4] hover:bg-[#313244]/50 transition-colors outline-none">
                               <MoreVertical size={14} />
                             </DropdownTrigger>
-                            <DropdownPopover aria-label="Agent Actions" placement="bottom end" className="w-40 bg-[#181825] border border-[#313244]">
-                              <DropdownItem onSelect={() => startDuplicate(agent)} className="flex items-center gap-2 text-[#cdd6f4]">
+                            <DropdownPopover aria-label="Agent Actions" placement="bottom end" className="w-44 bg-[#181825] border border-[#313244] rounded-xl shadow-xl p-1">
+                              <DropdownItem onSelect={() => startDuplicate(agent)} className="flex items-center gap-2 text-[#cdd6f4] px-3 py-2 rounded-lg hover:bg-[#313244] text-xs">
                                 <Copy size={13} /> Clone Specialist
                               </DropdownItem>
                               {!agent.is_system && (
                                 <>
-                                  <DropdownDivider />
-                                  <DropdownItem onSelect={() => handleDelete(agent.id)} className="flex items-center gap-2 text-[#f38ba8]">
+                                  <DropdownDivider className="my-1 border-[#313244]" />
+                                  <DropdownItem onSelect={() => handleDelete(agent.id)} className="flex items-center gap-2 text-[#f38ba8] px-3 py-2 rounded-lg hover:bg-[#f38ba8]/15 text-xs">
                                     <Trash2 size={13} /> Delete Specialist
                                   </DropdownItem>
                                 </>
@@ -539,18 +591,17 @@ function AgentEditorForm({ initialData, availableTools, models, onSave, onCancel
           {availableTools.map(t => {
             const isChecked = (formData.tools || []).includes(t.id);
             return (
-              <Switch
-                key={t.id} 
-                isSelected={isChecked}
-                onChange={() => toggleTool(t.id)}
-                className={(state) => `!flex !items-start p-4 w-full cursor-pointer rounded-xl border transition-all duration-200 ${
-                  state.isSelected 
+              <div
+                key={t.id}
+                onClick={() => toggleTool(t.id)}
+                className={`flex items-start justify-between p-4 w-full cursor-pointer rounded-xl border transition-all duration-200 ${
+                  isChecked 
                     ? 'border-[#a6e3a1]/60 bg-[#a6e3a1]/10 shadow-[0_0_15px_rgba(166,227,161,0.08)]' 
-                    : 'border-[#313244] bg-[#1e1e2e] hover:bg-[#313244]/40 hover:border-[#45475a]'
+                    : 'border-[#313244] bg-[#222336] hover:bg-[#282a40] hover:border-[#45475a]'
                 }`}
               >
-                <div className="flex-1 text-left w-full">
-                  <div className="flex justify-between items-start">
+                <div className="flex-1 text-left w-full pr-3">
+                  <div className="flex justify-between items-start mb-1">
                     <span className={`text-[14px] font-semibold ${isChecked ? 'text-[#a6e3a1]' : 'text-[#cdd6f4]'}`}>{t.name}</span>
                     <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider border ${
                       t.risk === 'high' ? 'border-[#f38ba8]/50 text-[#f38ba8] bg-[#f38ba8]/15' : 
@@ -560,9 +611,14 @@ function AgentEditorForm({ initialData, availableTools, models, onSave, onCancel
                       {t.category}
                     </span>
                   </div>
-                  <p className="text-[12px] text-[#a6adc8] mt-1 leading-relaxed">{t.description}</p>
+                  <p className="text-[12px] text-[#a6adc8] leading-relaxed">{t.description}</p>
                 </div>
-              </Switch>
+                <Toggle
+                  isChecked={isChecked}
+                  onChange={() => toggleTool(t.id)}
+                  label={`Toggle ${t.name}`}
+                />
+              </div>
             );
           })}
         </div>
