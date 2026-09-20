@@ -73,4 +73,8 @@ class SessionManager:
                 return dict(row)
             return None
 
+    def delete_session(self, thread_id: str):
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute('DELETE FROM sessions WHERE thread_id = ?', (thread_id,))
+
 session_manager = SessionManager()

@@ -21,13 +21,13 @@ const TelemetryPanel = ({
   return (
     <div className="w-[360px] h-full bg-[#161622] border-l border-[#2d2e42] flex flex-col shrink-0 overflow-hidden shadow-2xl z-20 animate-in slide-in-from-right-5 duration-200">
       {/* Panel Header */}
-      <div className="h-[65px] px-5 flex items-center justify-between border-b border-[#2d2e42] bg-[#11111a] shrink-0">
-        <div className="flex items-center gap-2.5">
-          <Activity size={18} className="text-[#cba6f7]" />
-          <span className="text-sm font-bold text-[#cdd6f4] tracking-tight">Live Telemetry</span>
+      <div className="h-[48px] px-4 flex items-center justify-between border-b border-[#2d2e42] bg-[#141420] shrink-0">
+        <div className="flex items-center gap-2">
+          <Activity size={16} className="text-[#cba6f7]" />
+          <span className="text-xs font-bold text-[#cdd6f4] uppercase tracking-wider">Live Telemetry</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${
+          <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
             isTyping 
               ? 'bg-[#a6e3a1]/15 text-[#a6e3a1] border-[#a6e3a1]/30' 
               : 'bg-[#585b70]/20 text-[#a6adc8] border-[#585b70]/30'
@@ -38,10 +38,10 @@ const TelemetryPanel = ({
           {onClose && (
             <button 
               onClick={onClose} 
-              className="p-1.5 text-[#a6adc8] hover:text-[#cdd6f4] hover:bg-[#222336] rounded-lg transition-colors"
+              className="p-1 text-[#a6adc8] hover:text-[#cdd6f4] hover:bg-[#222336] rounded-lg transition-colors"
               title="Close telemetry panel"
             >
-              <X size={16} />
+              <X size={14} />
             </button>
           )}
         </div>
@@ -146,9 +146,9 @@ const TelemetryPanel = ({
               </span>
             </div>
           </div>
-          <div className="mt-3 pt-2.5 border-t border-[#2d2e42] flex items-center justify-between text-[11px] text-[#a6adc8]">
-            <span>Gateway Proxy:</span>
-            <span className="font-mono text-[#cba6f7]">9Router (20128)</span>
+          <div className="mt-3 pt-2.5 border-t border-[#2d2e42] flex items-center justify-between text-[11px] text-[#a6adc8] min-w-0 gap-2">
+            <span className="shrink-0">Gateway Proxy:</span>
+            <span className="font-mono text-[#cba6f7] truncate min-w-0" title="9Router (20128)">9Router (20128)</span>
           </div>
         </div>
 

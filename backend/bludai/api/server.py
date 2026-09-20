@@ -151,6 +151,20 @@ def on_startup():
 def get_sessions(limit: int = 20):
     return session_manager.get_sessions(limit=limit)
 
+class SessionUpdateRequest(BaseModel):
+    title: Optional[str] = None
+    mode: Optional[str] = None
+
+@app.delete("/api/sessions/{thread_id}")
+def delete_session_endpoint(thread_id: str):
+    session_manager.delete_session(thread_id)
+    return {"status": "success", "thread_id": thread_id}
+
+@app.patch("/api/sessions/{thread_id}")
+def update_session_endpoint(thread_id: str, req: SessionUpdateRequest):
+    session_manager.update_session(thread_id, mode=req.mode, title=req.title)
+    return {"status": "success", "thread_id": thread_id, "title": req.title}
+
 class VectorIndexRequest(BaseModel):
     root_dir: Optional[str] = None
 

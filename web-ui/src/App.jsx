@@ -16,7 +16,9 @@ const API_BASE = 'http://localhost:8000/api';
 
 function App() {
   const [sessions, setSessions] = useState([]);
-  const [currentThread, setCurrentThread] = useState(null);
+  const [currentThread, setCurrentThread] = useState(() => {
+    return typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('thread') : null;
+  });
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -38,14 +40,34 @@ function App() {
   const [availableModels, setAvailableModels] = useState([]);
   const [isRefreshingModels, setIsRefreshingModels] = useState(false);
   const chatRef = useRef(null);
+  const inputRef = useRef(null);
   const timerRef = useRef(null);
   
+  useEffect(() => {
+    const handleGlobalKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
+        e.preventDefault();
+        setShowTelemetry(prev => !prev);
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        inputRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, []);
+
   useEffect(() => {
     const init = async () => {
       await fetchSettings();
       await fetchModels();
       await fetchAgents();
-      fetchSessions();
+      await fetchSessions();
+      const initialThread = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('thread') : null;
+      if (initialThread) {
+        loadSession(initialThread);
+      }
     };
     init();
   }, []);
@@ -121,17 +143,38 @@ function App() {
     try {
       const res = await fetch(`${API_BASE}/sessions/${threadId}/history`);
       const data = await res.json();
-      setMessages(data.messages || []);
+      const loadedMessages = data.messages || [];
+      setMessages(loadedMessages);
+
+      // Restore telemetry metrics from history if available
+      if (loadedMessages.length > 0) {
+        const lastAi = [...loadedMessages].reverse().find(m => m.role !== 'user' && (m.tokens || m.duration));
+        if (lastAi) {
+          if (lastAi.tokens) setLastTokens(lastAi.tokens);
+          if (lastAi.duration) setLastDuration(lastAi.duration);
+        } else {
+          setLastTokens(null);
+          setLastDuration(null);
+        }
+      } else {
+        setLastTokens(null);
+        setLastDuration(null);
+      }
     } catch (err) {
       console.error("Failed to fetch session history", err);
     }
   };
 
-
   const handleNewChat = () => {
     const newThread = Math.random().toString(36).substring(2, 15);
     setCurrentThread(newThread);
     setMessages([]);
+    setLiveThoughts([]);
+    setLiveTools([]);
+    setLastTokens(null);
+    setLastDuration(null);
+    setLiveStatus('');
+    inputRef.current?.focus();
   };
 
   const handleStreamResponse = async (response, startTime) => {
@@ -440,11 +483,12 @@ function App() {
         setShowSettings={setShowSettings}
         setShowWorkplace={setShowWorkplace}
         agents={agents}
+        refreshSessions={fetchSessions}
       />
 
-      {/* Panel 2: Center Task Stream & Interventions */}
+      {/* Main Workspace: Top Bar + Panels */}
       <div className="flex-1 flex flex-col h-full relative bg-[#161622] overflow-hidden min-w-0">
-        {/* Center Header */}
+        {/* Workspace Top Bar */}
         <div className="h-[65px] px-6 flex items-center justify-between border-b border-[#2d2e42] bg-[#11111a] shrink-0">
           <div className="flex items-center gap-3">
             <span 
@@ -478,23 +522,107 @@ function App() {
                   ? 'bg-[#cba6f7]/20 border-[#cba6f7]/50 text-[#cba6f7] shadow-sm' 
                   : 'bg-[#222336] border-[#383a54] text-[#a6adc8] hover:text-[#cdd6f4]'
               }`}
-              title="Toggle Live Telemetry & Tool Output (Right Panel)"
+              title="Toggle Live Telemetry & Tool Output (Ctrl+B)"
             >
               <Activity size={14} className={showTelemetry ? 'text-[#cba6f7]' : 'text-[#a6adc8]'} />
-              <span>Telemetry</span>
+              <span>{showTelemetry ? 'Hide Telemetry' : 'Telemetry'}</span>
+              <kbd className="hidden sm:inline-block text-[10px] font-mono opacity-50 ml-0.5 px-1 py-0.2 rounded bg-black/30 border border-white/10">^B</kbd>
             </button>
           </div>
         </div>
 
-        {/* Message Stream */}
-        <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6 scroll-smooth bg-[#161622]" ref={chatRef}>
+        {/* Workspace Body: Center Stream & Docked Telemetry Panel */}
+        <div className="flex-1 flex overflow-hidden">
+          {/* Panel 2: Center Task Stream & Interventions */}
+          <div className="flex-1 flex flex-col h-full relative bg-[#161622] overflow-hidden min-w-0">
+            {/* Message Stream */}
+            <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6 scroll-smooth bg-[#161622]" ref={chatRef}>
           {messages.length === 0 && (
-            <div className="flex flex-col items-center justify-center h-full text-center opacity-60">
-              <div className="w-16 h-16 rounded-2xl bg-[#222336] border border-[#383a54] flex items-center justify-center mb-4 shadow-lg shadow-black/40">
-                <Cpu size={32} className="text-[#cba6f7]" />
+            <div className="flex flex-col items-center justify-center min-h-[85%] max-w-2xl mx-auto py-8 text-center animate-in fade-in duration-300">
+              <div className="w-14 h-14 rounded-2xl bg-[#222336] border border-[#383a54] flex items-center justify-center mb-3.5 shadow-lg shadow-black/40">
+                <Cpu size={28} className="text-[#cba6f7]" />
               </div>
-              <h2 className="text-xl font-bold text-[#cdd6f4] mb-2">Bludai Multi-Agent Workspace</h2>
-              <p className="text-sm text-[#a6adc8] max-w-md">Supervisor orchestrates Developer, Executor, and Research specialists to complete complex workflows.</p>
+              <h2 className="text-xl font-bold text-[#cdd6f4] mb-1.5">Bludai Multi-Agent Workspace</h2>
+              <p className="text-xs text-[#a6adc8] max-w-md mb-6">
+                Supervisor dynamically coordinates Developer, Executor, Reviewer, and Research specialists to complete complex workflows.
+              </p>
+
+              {/* Fleet Capabilities Summary */}
+              <div className="w-full bg-[#222336] border border-[#383a54] rounded-2xl p-4 mb-6 shadow-lg shadow-black/40 text-left">
+                <div className="flex items-center justify-between mb-3 pb-2.5 border-b border-[#2d2e42]">
+                  <span className="text-[11px] font-bold text-[#cdd6f4] uppercase tracking-wider flex items-center gap-1.5">
+                    <Sparkles size={13} className="text-[#cba6f7]" /> Active Fleet Capabilities
+                  </span>
+                  <button 
+                    onClick={() => setShowWorkplace(true)}
+                    className="text-[11px] text-[#cba6f7] hover:text-[#b4befe] hover:underline font-medium cursor-pointer"
+                  >
+                    Configure Roles &rarr;
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                  {(agents.length > 0 ? agents : [
+                    { id: '1', name: 'Developer', tools: ['create_file', 'read_file', 'replace_content'], color: '#00E5FF', enabled: true },
+                    { id: '2', name: 'Executor', tools: ['run_terminal_command'], color: '#00E676', enabled: true },
+                    { id: '3', name: 'CodeReviewer', tools: ['read_file', 'semantic_search'], color: '#FFB300', enabled: true },
+                    { id: '4', name: 'Researcher', tools: ['web_search', 'read_file'], color: '#D500F9', enabled: true }
+                  ]).filter(a => a.enabled).slice(0, 4).map(a => (
+                    <div key={a.id} className="bg-[#141420] border border-[#2d2e42] rounded-xl p-2.5 flex flex-col">
+                      <div className="flex items-center gap-1.5 mb-1 min-w-0">
+                        <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: a.color || '#cba6f7' }} />
+                        <span className="text-xs font-bold text-[#cdd6f4] truncate">{a.name}</span>
+                      </div>
+                      <span className="text-[10px] text-[#a6adc8] truncate font-mono">
+                        {a.tools?.length || 0} tools active
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Quick-Start Orchestration Prompts */}
+              <div className="w-full text-left">
+                <span className="text-[11px] font-bold text-[#a6adc8] uppercase tracking-wider mb-3 block">
+                  Quick-Start Orchestrations
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {[
+                    {
+                      title: "Audit Codebase Security & Quality",
+                      desc: "Scan repository for security risks, antipatterns, and logic bugs.",
+                      prompt: "Perform a security and quality audit on the current codebase. Report critical risks and propose fixes."
+                    },
+                    {
+                      title: "Run Test Suite & Diagnose",
+                      desc: "Execute automated tests and provide root-cause diagnostics.",
+                      prompt: "Run the test suite, analyze any failures, and recommend targeted patches."
+                    },
+                    {
+                      title: "Research Latest Agent Patterns",
+                      desc: "Search documentation and summarize recommended architectures.",
+                      prompt: "Research modern multi-agent supervisor and worker architectural patterns and summarize best practices."
+                    },
+                    {
+                      title: "Refactor Component Hierarchy",
+                      desc: "Streamline UI state management and eliminate redundant renders.",
+                      prompt: "Inspect the frontend components, identify state redundancies, and propose a cleaner component architecture."
+                    }
+                  ].map((item, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setInputText(item.prompt)}
+                      className="flex flex-col text-left p-3.5 bg-[#222336] border border-[#383a54] hover:border-[#cba6f7] rounded-xl transition-all hover:-translate-y-0.5 shadow-md shadow-black/30 group cursor-pointer"
+                    >
+                      <span className="text-xs font-semibold text-[#cdd6f4] group-hover:text-[#cba6f7] transition-colors mb-1">
+                        {item.title}
+                      </span>
+                      <span className="text-[11px] text-[#a6adc8] leading-snug">
+                        {item.desc}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
           
@@ -581,8 +709,9 @@ function App() {
           
           <div className="flex items-center gap-2 bg-[#222336] border border-[#383a54] rounded-2xl px-4 py-3 focus-within:border-[#cba6f7] focus-within:ring-2 focus-within:ring-[#cba6f7]/25 shadow-lg shadow-black/40 transition-all">
             <textarea
+              ref={inputRef}
               className="flex-1 bg-transparent border-none outline-none text-[#cdd6f4] text-sm resize-none font-sans placeholder:text-[#6c7086]"
-              placeholder={pendingInterrupt ? "Approve or reject terminal command first..." : "Ask Bludai to coordinate agents..."}
+              placeholder={pendingInterrupt ? "Approve or reject terminal command first..." : "Ask Bludai to coordinate agents... (Ctrl+K)"}
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               onKeyDown={handleKeyDown}
@@ -613,6 +742,8 @@ function App() {
         lastTokens={lastTokens}
         lastDuration={lastDuration}
       />
+        </div>
+      </div>
     </div>
   );
 }
