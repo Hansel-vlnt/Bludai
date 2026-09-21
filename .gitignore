@@ -78,6 +78,7 @@ hermes-agent/
 9router/
 openclaw/
 belajar/
+referensi/
 
 # --- Temporary Notes & Brainstorming Docs ---
 9router.md
@@ -85,6 +86,11 @@ Hermes.md
 plan.md
 task.md
 .ua/
+docs/
+
+# --- Antigravity & Agent Skills ---
+.antigravity/
+skills/
 
 # --- Screenshots & Images ---
 *.png
