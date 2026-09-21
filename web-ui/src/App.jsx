@@ -9,6 +9,8 @@ import ThinkingBlock from './components/ThinkingBlock';
 import ThinkingIndicator from './components/ThinkingIndicator';
 import TerminalApprovalCard from './components/TerminalApprovalCard';
 import TelemetryPanel from './components/TelemetryPanel';
+import AgentWorkplaceGraph from './components/AgentWorkplaceGraph';
+import ActionSummaryCard from './components/ActionSummaryCard';
 import { extractThinking } from './utils/thinkingParser';
 import './index.css';
 
@@ -18,6 +20,9 @@ function App() {
   const [sessions, setSessions] = useState([]);
   const [currentThread, setCurrentThread] = useState(() => {
     return typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('thread') : null;
+  });
+  const [mainView, setMainView] = useState(() => {
+    return typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('view') === 'graph' ? 'graph' : 'stream';
   });
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
@@ -134,6 +139,33 @@ function App() {
       setSessions(data);
     } catch (err) {
       console.error("Failed to fetch sessions", err);
+    }
+  };
+
+  const handleToggleEnabled = async (agent) => {
+    try {
+      const updated = { ...agent, enabled: !agent.enabled };
+      await fetch(`${API_BASE}/agents/${agent.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: updated.enabled })
+      });
+      setAgents(prev => prev.map(a => a.id === agent.id ? updated : a));
+    } catch (err) {
+      console.error("Toggle agent failed", err);
+    }
+  };
+
+  const handleQuickModelChange = async (agent, modelId) => {
+    try {
+      await fetch(`${API_BASE}/agents/${agent.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: modelId })
+      });
+      setAgents(prev => prev.map(a => a.id === agent.id ? { ...a, model: modelId } : a));
+    } catch (err) {
+      console.error("Model update failed", err);
     }
   };
 
@@ -488,21 +520,49 @@ function App() {
 
       {/* Main Workspace: Top Bar + Panels */}
       <div className="flex-1 flex flex-col h-full relative bg-[#161622] overflow-hidden min-w-0">
-        {/* Workspace Top Bar */}
-        <div className="h-[65px] px-6 flex items-center justify-between border-b border-[#2d2e42] bg-[#11111a] shrink-0">
+        {/* Workspace Top Bar: Antigravity-style Breadcrumb Header & View Switcher */}
+        <div className="h-[65px] px-6 flex items-center justify-between border-b border-[#2d2e42] bg-[#141420] shrink-0">
           <div className="flex items-center gap-3">
-            <span 
-              className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-xl bg-[#cba6f7]/15 text-[#cba6f7] border border-[#cba6f7]/30" 
-              title="Autonomous Supervisor coordinating specialized worker agents"
-            >
-              ⚡ Multi-Agent Orchestration
-            </span>
+            {/* Breadcrumb-style navigation */}
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-[#6c7086] font-medium hover:text-[#cdd6f4] transition-colors cursor-default">Bludai</span>
+              <span className="text-[#45475a]">/</span>
+              <span className="text-[#cdd6f4] font-semibold flex items-center gap-1.5">
+                <Cpu size={14} className="text-[#cba6f7]" />
+                {sessions.find(s => s.thread_id === currentThread)?.title || "Multi-Agent Workspace"}
+              </span>
+            </div>
+
+            {/* Dedicated View Switcher: Stream vs Graph */}
+            <div className="flex items-center p-0.5 bg-[#141420] border border-[#2d2e42] rounded-xl ml-2">
+              <button
+                onClick={() => setMainView('stream')}
+                className={`flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                  mainView === 'stream' 
+                    ? 'bg-[#222336] text-[#cdd6f4] border border-[#383a54] shadow-sm' 
+                    : 'text-[#a6adc8] hover:text-[#cdd6f4]'
+                }`}
+              >
+                Task Stream
+              </button>
+              <button
+                onClick={() => setMainView('graph')}
+                className={`flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                  mainView === 'graph' 
+                    ? 'bg-[#222336] text-[#cba6f7] border border-[#383a54] shadow-sm' 
+                    : 'text-[#a6adc8] hover:text-[#cdd6f4]'
+                }`}
+              >
+                Fleet Graph
+              </button>
+            </div>
+
             <button
               onClick={() => setShowWorkplace(true)}
-              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl text-[#cdd6f4] bg-[#222336] border border-[#383a54] hover:border-[#cba6f7] hover:text-[#cba6f7] cursor-pointer transition-all shadow-sm"
-              title="Manage dynamic multi-agent roles and tool whitelisting"
+              className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-xl text-[#a6adc8] bg-[#1a1b28] border border-[#2d2e42] hover:border-[#383a54] hover:text-[#cdd6f4] cursor-pointer transition-all shadow-sm ml-1"
+              title="Manage dynamic multi-agent roles and tool whitelisting in modal"
             >
-              <Users size={14} /> Workplace Roles
+              <Users size={13} /> Edit Roster
             </button>
           </div>
 
@@ -531,54 +591,78 @@ function App() {
           </div>
         </div>
 
-        {/* Workspace Body: Center Stream & Docked Telemetry Panel */}
+        {/* Workspace Body: Center Stream / Graph & Docked Telemetry Panel */}
         <div className="flex-1 flex overflow-hidden">
-          {/* Panel 2: Center Task Stream & Interventions */}
+          {/* Panel 2: Center Task Stream & Interventions OR Live Fleet Graph */}
           <div className="flex-1 flex flex-col h-full relative bg-[#161622] overflow-hidden min-w-0">
-            {/* Message Stream */}
-            <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6 scroll-smooth bg-[#161622]" ref={chatRef}>
-          {messages.length === 0 && (
-            <div className="flex flex-col items-center justify-center min-h-[85%] max-w-2xl mx-auto py-8 text-center animate-in fade-in duration-300">
-              <div className="w-14 h-14 rounded-2xl bg-[#222336] border border-[#383a54] flex items-center justify-center mb-3.5 shadow-lg shadow-black/40">
-                <Cpu size={28} className="text-[#cba6f7]" />
+            {mainView === 'graph' ? (
+              <div className="flex-1 flex flex-col p-6 overflow-hidden bg-[#161622]">
+                <div className="flex items-center justify-between mb-3.5">
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-sm font-bold text-[#cdd6f4] tracking-tight">Interactive Fleet Topology</span>
+                    <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-md bg-[#cba6f7]/15 text-[#cba6f7] border border-[#cba6f7]/30">
+                      {agents.filter(a => a.enabled).length} / {agents.length} Active Specialists
+                    </span>
+                  </div>
+                  <span className="text-xs text-[#a6adc8]">Supervisor dynamically coordinates worker nodes</span>
+                </div>
+                <div className="flex-1 overflow-hidden relative">
+                  <AgentWorkplaceGraph 
+                    agents={agents}
+                    models={availableModels}
+                    handleToggleEnabled={handleToggleEnabled}
+                    handleQuickModelChange={handleQuickModelChange}
+                    handleEditAgent={() => setShowWorkplace(true)}
+                    handleDeleteAgent={() => setShowWorkplace(true)}
+                    handleDuplicateAgent={() => setShowWorkplace(true)}
+                  />
+                </div>
               </div>
-              <h2 className="text-xl font-bold text-[#cdd6f4] mb-1.5">Bludai Multi-Agent Workspace</h2>
-              <p className="text-xs text-[#a6adc8] max-w-md mb-6">
-                Supervisor dynamically coordinates Developer, Executor, Reviewer, and Research specialists to complete complex workflows.
-              </p>
+            ) : (
+              /* Message Stream */
+              <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6 scroll-smooth bg-[#161622]" ref={chatRef}>
+            {messages.length === 0 && (
+              <div className="flex flex-col items-center justify-center min-h-[85%] max-w-2xl mx-auto py-8 text-center animate-in fade-in duration-300">
+                <div className="w-14 h-14 rounded-2xl bg-[#222336] border border-[#383a54] flex items-center justify-center mb-3.5 shadow-lg shadow-black/40">
+                  <Cpu size={28} className="text-[#cba6f7]" />
+                </div>
+                <h2 className="text-xl font-bold text-[#cdd6f4] mb-1.5">Bludai Multi-Agent Workspace</h2>
+                <p className="text-xs text-[#a6adc8] max-w-md mb-6">
+                  Supervisor dynamically coordinates Developer, Executor, Reviewer, and Research specialists to complete complex workflows.
+                </p>
 
-              {/* Fleet Capabilities Summary */}
-              <div className="w-full bg-[#222336] border border-[#383a54] rounded-2xl p-4 mb-6 shadow-lg shadow-black/40 text-left">
-                <div className="flex items-center justify-between mb-3 pb-2.5 border-b border-[#2d2e42]">
-                  <span className="text-[11px] font-bold text-[#cdd6f4] uppercase tracking-wider flex items-center gap-1.5">
-                    <Sparkles size={13} className="text-[#cba6f7]" /> Active Fleet Capabilities
-                  </span>
-                  <button 
-                    onClick={() => setShowWorkplace(true)}
-                    className="text-[11px] text-[#cba6f7] hover:text-[#b4befe] hover:underline font-medium cursor-pointer"
-                  >
-                    Configure Roles &rarr;
-                  </button>
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                  {(agents.length > 0 ? agents : [
-                    { id: '1', name: 'Developer', tools: ['create_file', 'read_file', 'replace_content'], color: '#00E5FF', enabled: true },
-                    { id: '2', name: 'Executor', tools: ['run_terminal_command'], color: '#00E676', enabled: true },
-                    { id: '3', name: 'CodeReviewer', tools: ['read_file', 'semantic_search'], color: '#FFB300', enabled: true },
-                    { id: '4', name: 'Researcher', tools: ['web_search', 'read_file'], color: '#D500F9', enabled: true }
-                  ]).filter(a => a.enabled).slice(0, 4).map(a => (
-                    <div key={a.id} className="bg-[#141420] border border-[#2d2e42] rounded-xl p-2.5 flex flex-col">
-                      <div className="flex items-center gap-1.5 mb-1 min-w-0">
-                        <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: a.color || '#cba6f7' }} />
-                        <span className="text-xs font-bold text-[#cdd6f4] truncate">{a.name}</span>
+                {/* Fleet Capabilities Summary */}
+                <div className="w-full bg-[#222336] border border-[#383a54] rounded-2xl p-4 mb-6 shadow-lg shadow-black/40 text-left">
+                  <div className="flex items-center justify-between mb-3 pb-2.5 border-b border-[#2d2e42]">
+                    <span className="text-[11px] font-bold text-[#cdd6f4] uppercase tracking-wider flex items-center gap-1.5">
+                      <Sparkles size={13} className="text-[#cba6f7]" /> Active Fleet Capabilities
+                    </span>
+                    <button 
+                      onClick={() => setMainView('graph')}
+                      className="text-[11px] text-[#cba6f7] hover:text-[#b4befe] hover:underline font-medium cursor-pointer"
+                    >
+                      View Live Graph &rarr;
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                    {(agents.length > 0 ? agents : [
+                      { id: '1', name: 'Developer', tools: ['create_file', 'read_file', 'replace_content'], color: '#00E5FF', enabled: true },
+                      { id: '2', name: 'Executor', tools: ['run_terminal_command'], color: '#00E676', enabled: true },
+                      { id: '3', name: 'CodeReviewer', tools: ['read_file', 'semantic_search'], color: '#FFB300', enabled: true },
+                      { id: '4', name: 'Researcher', tools: ['web_search', 'read_file'], color: '#D500F9', enabled: true }
+                    ]).filter(a => a.enabled).slice(0, 4).map(a => (
+                      <div key={a.id} className="bg-[#141420] border border-[#2d2e42] rounded-xl p-2.5 flex flex-col">
+                        <div className="flex items-center gap-1.5 mb-1 min-w-0">
+                          <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: a.color || '#cba6f7' }} />
+                          <span className="text-xs font-bold text-[#cdd6f4] truncate">{a.name}</span>
+                        </div>
+                        <span className="text-[10px] text-[#a6adc8] truncate font-mono">
+                          {a.tools?.length || 0} tools active
+                        </span>
                       </div>
-                      <span className="text-[10px] text-[#a6adc8] truncate font-mono">
-                        {a.tools?.length || 0} tools active
-                      </span>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
 
               {/* Quick-Start Orchestration Prompts */}
               <div className="w-full text-left">
@@ -648,7 +732,25 @@ function App() {
                   )}
                   {cleanContent && (
                     <div className="markdown-body">
-                      <ReactMarkdown>{cleanContent}</ReactMarkdown>
+                      <ReactMarkdown
+                        components={{
+                          code({ node, inline, className, children, ...props }) {
+                            return inline ? (
+                              <code className="font-mono text-[12px] bg-[#141420] text-[#cdd6f4] px-1.5 py-0.5 rounded-md border border-[#2d2e42]" {...props}>
+                                {children}
+                              </code>
+                            ) : (
+                              <pre className="bg-[#141420] border border-[#2d2e42] rounded-xl p-3.5 my-2.5 overflow-x-auto text-xs font-mono text-[#cdd6f4] shadow-inner">
+                                <code className={className} {...props}>
+                                  {children}
+                                </code>
+                              </pre>
+                            );
+                          }
+                        }}
+                      >
+                        {cleanContent}
+                      </ReactMarkdown>
                     </div>
                   )}
                   {isAi && (msg.tokens || msg.duration) && (
@@ -693,6 +795,7 @@ function App() {
             />
           )}
         </div>
+      )}
 
         {/* Bottom Input Area */}
         <div className="border-t border-[#2d2e42] bg-[#11111a] px-6 pt-3.5 pb-6 space-y-3 shrink-0">

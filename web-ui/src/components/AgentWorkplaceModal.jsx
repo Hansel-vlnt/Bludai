@@ -25,11 +25,11 @@ function Toggle({ isChecked, onChange, label }) {
         <span
           className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
             isFocusVisible ? 'ring-2 ring-[#cba6f7] ring-offset-2 ring-offset-[#161622]' : ''
-          } ${isSelected ? 'bg-[#a6e3a1]' : 'bg-[#313244]'}`}
+          } ${isSelected ? 'bg-[#cba6f7]' : 'bg-[#313244]'}`}
         >
           <span
             className={`pointer-events-none inline-block h-5 w-5 transform rounded-full shadow-md transition duration-200 ease-in-out ${
-              isSelected ? 'translate-x-5 bg-[#11111b]' : 'translate-x-0 bg-[#a6adc8]'
+              isSelected ? 'translate-x-5 bg-[#141420]' : 'translate-x-0 bg-[#a6adc8]'
             }`}
           />
         </span>
@@ -262,7 +262,7 @@ function AgentWorkplaceModal({ onClose, models = [] }) {
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200">
       <div className="w-full max-w-6xl max-h-[95vh] bg-[#161622] border border-[#2d2e42] rounded-3xl shadow-2xl shadow-black/80 flex flex-col overflow-hidden ring-1 ring-white/10">
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-7 py-4.5 border-b border-[#2d2e42] bg-[#11111a] rounded-t-3xl">
+        <div className="flex items-center justify-between px-7 py-4.5 border-b border-[#2d2e42] bg-[#141420] rounded-t-3xl">
           <div className="flex flex-col gap-1">
             <h3 className="text-lg font-semibold text-[#cdd6f4] flex items-center gap-2">
               <span className="text-[#cba6f7] font-mono font-bold">&gt;_</span> 
@@ -281,8 +281,8 @@ function AgentWorkplaceModal({ onClose, models = [] }) {
         </div>
 
         {statusMessage && (
-          <div className="flex items-center gap-2 px-6 py-3 bg-[#a6e3a1]/15 border-y border-[#a6e3a1]/30 text-[#a6e3a1] text-sm font-medium">
-            <Check size={16} /> {statusMessage}
+          <div className="flex items-center gap-2 px-6 py-3 bg-[#141420] border-y border-[#383a54] text-[#cdd6f4] text-sm font-medium">
+            <Check size={16} className="text-[#a6e3a1]" /> {statusMessage}
           </div>
         )}
 
@@ -303,7 +303,8 @@ function AgentWorkplaceModal({ onClose, models = [] }) {
               <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center justify-between gap-4 mb-7 pb-5 border-b border-[#2d2e42]">
                 <div className="flex flex-col gap-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="px-3 py-1 text-xs font-semibold rounded-full bg-[#a6e3a1]/15 text-[#a6e3a1] border border-[#a6e3a1]/30">
+                    <span className="inline-flex items-center gap-2 px-3 py-1 text-xs font-medium rounded-full bg-[#141420] text-[#cdd6f4] border border-[#2d2e42]">
+                      <span className="w-2 h-2 rounded-full bg-[#a6e3a1]" />
                       {activeCount} / {agents.length} Enabled
                     </span>
                   </div>
@@ -313,7 +314,7 @@ function AgentWorkplaceModal({ onClose, models = [] }) {
                   <button className="flex items-center gap-2 px-3.5 py-2 text-xs font-medium text-[#a6adc8] bg-[#222336] border border-[#35374e] rounded-xl hover:bg-[#2d2e42] hover:text-[#cdd6f4] transition-colors" onClick={handleResetDefaults} title="Reset to default agents">
                     <RotateCcw size={14} /> Reset Defaults
                   </button>
-                  <button className="flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-[#11111b] bg-[#cba6f7] border border-[#cba6f7] rounded-xl hover:bg-[#b4befe] shadow-[0_0_15px_rgba(203,166,247,0.25)] transition-all" onClick={startCreateNew}>
+                  <button className="flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-[#11111b] bg-[#cba6f7] border border-[#cba6f7] rounded-xl hover:bg-[#b4befe] shadow-md shadow-black/40 transition-all" onClick={startCreateNew}>
                     <Plus size={14} strokeWidth={2.5} /> New Specialist
                   </button>
                 </div>
@@ -400,7 +401,7 @@ function AgentEditorForm({ initialData, availableTools, models, onSave, onCancel
           value={formData.name} 
           onChange={(val) => setFormData({ ...formData, name: val })} 
           placeholder="e.g. CodeReviewer" 
-          fieldClassName="font-mono text-sm"
+          fieldClassName="font-mono text-sm bg-[#141420] border border-[#2d2e42] rounded-xl px-3 py-1.5 text-[#cdd6f4] focus-within:border-[#cba6f7]"
           isRequired
         />
 
@@ -410,6 +411,7 @@ function AgentEditorForm({ initialData, availableTools, models, onSave, onCancel
           value={formData.title} 
           onChange={(val) => setFormData({ ...formData, title: val })} 
           placeholder="e.g. Security & Vulnerability Auditor"
+          fieldClassName="text-sm bg-[#141420] border border-[#2d2e42] rounded-xl px-3 py-1.5 text-[#cdd6f4] focus-within:border-[#cba6f7]"
         />
       </div>
 
@@ -420,6 +422,7 @@ function AgentEditorForm({ initialData, availableTools, models, onSave, onCancel
           value={formData.description} 
           onChange={(val) => setFormData({ ...formData, description: val })} 
           placeholder="e.g. You are a senior security researcher. You review code for..."
+          fieldClassName="text-sm bg-[#141420] border border-[#2d2e42] rounded-xl px-3 py-1.5 text-[#cdd6f4] focus-within:border-[#cba6f7]"
         />
       </div>
 
@@ -430,14 +433,14 @@ function AgentEditorForm({ initialData, availableTools, models, onSave, onCancel
           onChange={(val) => setFormData({ ...formData, system_prompt: val })}
           placeholder="You are an expert... Never guess... Always use tools..."
           rows={6}
-          fieldClassName="font-mono text-sm"
+          fieldClassName="font-mono text-sm bg-[#141420] border border-[#2d2e42] rounded-xl p-3 text-[#cdd6f4] focus-within:border-[#cba6f7]"
         />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
         <div className="flex flex-col gap-1.5">
           <label className="text-[13px] font-semibold text-[#cdd6f4] uppercase tracking-wider">Dedicated Model</label>
-          <div className="bg-[#11111b] border border-[#313244] rounded-lg px-3 py-2 h-[38px] flex items-center">
+          <div className="bg-[#141420] border border-[#2d2e42] rounded-xl px-3 py-2 h-[38px] flex items-center">
             <ModelSelector
               selectedModel={formData.model}
               setSelectedModel={(val) => setFormData({ ...formData, model: val })}
@@ -480,17 +483,17 @@ function AgentEditorForm({ initialData, availableTools, models, onSave, onCancel
                 onClick={() => toggleTool(t.id)}
                 className={`flex items-start justify-between p-4 w-full cursor-pointer rounded-xl border transition-all duration-200 ${
                   isChecked 
-                    ? 'border-[#a6e3a1]/60 bg-[#a6e3a1]/10 shadow-[0_0_15px_rgba(166,227,161,0.08)]' 
-                    : 'border-[#313244] bg-[#222336] hover:bg-[#282a40] hover:border-[#45475a]'
+                    ? 'border-[#cba6f7]/60 bg-[#222336] ring-1 ring-[#cba6f7]/30 shadow-md shadow-black/40' 
+                    : 'border-[#2d2e42] bg-[#1a1b28] hover:bg-[#222336] hover:border-[#383a54]'
                 }`}
               >
                 <div className="flex-1 text-left w-full pr-3">
                   <div className="flex justify-between items-start mb-1">
-                    <span className={`text-[14px] font-semibold ${isChecked ? 'text-[#a6e3a1]' : 'text-[#cdd6f4]'}`}>{t.name}</span>
+                    <span className="text-[14px] font-semibold text-[#cdd6f4]">{t.name}</span>
                     <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider border ${
                       t.risk === 'high' ? 'border-[#f38ba8]/50 text-[#f38ba8] bg-[#f38ba8]/15' : 
                       t.risk === 'medium' ? 'border-[#f9e2af]/50 text-[#f9e2af] bg-[#f9e2af]/15' : 
-                      'border-[#a6e3a1]/50 text-[#a6e3a1] bg-[#a6e3a1]/15'
+                      'border-[#383a54] text-[#a6adc8] bg-[#141420]'
                     }`}>
                       {t.category}
                     </span>
@@ -508,7 +511,7 @@ function AgentEditorForm({ initialData, availableTools, models, onSave, onCancel
         </div>
       </div>
 
-      <div className="col-span-2 pt-6 mt-4 border-t border-[#313244] flex items-center justify-end gap-3">
+      <div className="col-span-2 pt-6 mt-4 border-t border-[#2d2e42] flex items-center justify-end gap-3">
         <button 
           type="button" 
           className="px-4 py-2 text-sm font-medium text-[#a6adc8] hover:text-[#cdd6f4] transition-colors"
@@ -518,7 +521,7 @@ function AgentEditorForm({ initialData, availableTools, models, onSave, onCancel
         </button>
         <button 
           type="submit" 
-          className="flex items-center gap-2 px-5 py-2 text-sm font-semibold text-[#11111b] bg-[#a6e3a1] hover:bg-[#94e2d5] rounded-lg shadow-[0_0_15px_rgba(166,227,161,0.3)] transition-all active:scale-[0.98]"
+          className="flex items-center gap-2 px-5 py-2 text-sm font-bold text-[#11111b] bg-[#cba6f7] hover:bg-[#b4befe] rounded-xl shadow-md shadow-black/40 transition-all active:scale-[0.98]"
         >
           <Check size={16} strokeWidth={2.5} />
           Save Specialist

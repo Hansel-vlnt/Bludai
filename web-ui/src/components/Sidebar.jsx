@@ -100,6 +100,22 @@ const Sidebar = ({
     }
   };
 
+  const formatRelativeTime = (rawDate) => {
+    if (!rawDate) return '';
+    const date = new Date(rawDate);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMins < 1) return 'just now';
+    if (diffMins < 60) return `${diffMins}m`;
+    if (diffHours < 24) return `${diffHours}h`;
+    if (diffDays < 7) return `${diffDays}d`;
+    return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  };
+
   return (
     <div className="w-[300px] h-full border-r border-[#2d2e42] flex flex-col bg-[#161622] shrink-0 select-none shadow-2xl z-10">
       {/* Brand Header */}
@@ -118,13 +134,13 @@ const Sidebar = ({
         </span>
       </div>
       
-      {/* Action / New Chat Button */}
+      {/* Action / New Chat Button: Outline-style secondary action */}
       <div className="p-3">
         <button 
-          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-bold text-[#11111b] bg-[#cba6f7] rounded-xl hover:bg-[#b4befe] shadow-[0_0_20px_rgba(203,166,247,0.25)] hover:shadow-[0_0_25px_rgba(203,166,247,0.35)] transition-all cursor-pointer"
+          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-bold text-[#cdd6f4] bg-[#222336] border border-[#383a54] hover:border-[#cba6f7] hover:text-[#cba6f7] rounded-xl transition-all shadow-sm cursor-pointer"
           onClick={handleNewChat}
         >
-          <Plus size={16} strokeWidth={2.5} /> New Orchestration
+          <Plus size={16} strokeWidth={2.5} className="text-[#cba6f7]" /> New Orchestration
         </button>
       </div>
 
@@ -303,7 +319,7 @@ const Sidebar = ({
                           </div>
                         </div>
                         <div className="text-xs text-[#a6adc8] opacity-50 mt-1 flex items-center justify-between">
-                          <span>{dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                          <span>{formatRelativeTime(s.updated_at || s.created_at)}</span>
                         </div>
                       </>
                     )}

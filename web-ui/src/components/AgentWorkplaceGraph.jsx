@@ -95,18 +95,14 @@ const SpecialistNode = ({ data }) => {
                 </span>
               </div>
               
-              {/* Telemetry pill: specialist color strictly paired with role label, truncating cleanly */}
+              {/* Telemetry pill: neutral gray typography with compact specialist category indicator */}
               <div className="mt-1">
                 <span 
-                  className="inline-block max-w-[170px] truncate text-[10px] font-semibold uppercase px-2 py-0.5 rounded-md border align-middle"
-                  style={{ 
-                    borderColor: `${agent.color || '#cba6f7'}40`, 
-                    color: agent.color || '#cba6f7', 
-                    backgroundColor: `${agent.color || '#cba6f7'}15` 
-                  }}
+                  className="inline-flex items-center gap-1.5 max-w-[180px] truncate text-[10px] font-semibold uppercase px-2 py-0.5 rounded-md bg-[#141420] border border-[#2d2e42] text-[#a6adc8] align-middle"
                   title={agent.title || 'Specialist'}
                 >
-                  {agent.title || 'Specialist'}
+                  <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: agent.color || '#cba6f7' }} />
+                  <span className="truncate">{agent.title || 'Specialist'}</span>
                 </span>
               </div>
             </div>
@@ -215,7 +211,7 @@ export default function AgentWorkplaceGraph({ agents, models, handleToggleEnable
       label: agent.enabled ? 'delegates / tool results' : 'inactive',
       style: { stroke: agent.enabled ? '#cba6f7' : '#45475a', strokeWidth: 2 },
       labelStyle: { fill: agent.enabled ? '#a6adc8' : '#45475a', fontSize: 10, fontWeight: 600 },
-      labelBgStyle: { fill: '#1e1e2e', stroke: '#313244', strokeWidth: 1, rx: 4, ry: 4 },
+      labelBgStyle: { fill: '#141420', stroke: '#383a54', strokeWidth: 1, rx: 4, ry: 4 },
       markerEnd: {
         type: MarkerType.ArrowClosed,
         color: agent.enabled ? '#cba6f7' : '#45475a',
@@ -224,18 +220,19 @@ export default function AgentWorkplaceGraph({ agents, models, handleToggleEnable
   }, [agents]);
 
   return (
-    <div style={{ width: '100%', height: '550px' }} className="rounded-2xl overflow-hidden border border-[#2d2e42] bg-[#11111b] mt-4">
+    <div className="w-full h-[520px] rounded-2xl overflow-hidden border border-[#2d2e42] bg-[#141420]">
       <ReactFlow 
+        key={agents.map(a => a.id || a.name).join('-') || 'empty'}
         nodes={nodes} 
         edges={edges} 
         nodeTypes={nodeTypes}
         fitView
-        fitViewOptions={{ padding: 0.2 }}
-        minZoom={0.5}
-        maxZoom={1.5}
+        fitViewOptions={{ padding: 0.25 }}
+        minZoom={0.3}
+        maxZoom={1.2}
       >
-        <Background color="#313244" gap={16} size={1} />
-        <Controls className="bg-[#1e1e2e] border-[#313244] fill-[#cdd6f4]" />
+        <Background color="#252638" gap={20} size={1} />
+        <Controls className="bg-[#141420] border-[#383a54] fill-[#cdd6f4]" />
       </ReactFlow>
     </div>
   );
