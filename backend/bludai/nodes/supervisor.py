@@ -3,7 +3,7 @@ import re
 from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, Field, ConfigDict
-from langchain_core.messages import SystemMessage, AIMessage
+from langchain_core.messages import SystemMessage, AIMessage, HumanMessage
 from bludai.core.llm_client import get_llm_client
 from bludai.core.skills_manager import skills_manager
 from bludai.core.settings_manager import settings_manager
@@ -230,8 +230,19 @@ You MUST respond with a JSON object conforming to this schema:
     if checklist_status:
         messages.append(SystemMessage(content=f"Current Checklist:\n{checklist_status}"))
         
-    messages.extend(state["messages"])
+    new_state_msgs = []
+    for m in state.get("messages", []):
+        if getattr(m, "type", "") == "ai" and m.additional_kwargs.get("agent") != "Supervisor":
+            agent_source = m.additional_kwargs.get("agent", "Worker")
+            new_state_msgs.append(HumanMessage(content=f"[{agent_source} Output]:\n{m.content}"))
+        else:
+            new_state_msgs.append(m)
+
+    messages.extend(new_state_msgs)
     
+    if new_state_msgs and getattr(new_state_msgs[-1], "type", "") == "ai":
+        messages.append(HumanMessage(content="Please evaluate the above outputs and route to the next specialist or FINISH."))
+        
     # Invoke model and parse robustly
     try:
         raw_res = llm.invoke(messages)

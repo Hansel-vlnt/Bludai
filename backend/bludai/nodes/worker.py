@@ -48,7 +48,24 @@ def make_worker_node(agent_id: str) -> Callable[[AgentState], dict]:
 
         # Build message history for worker turn
         messages = [SystemMessage(content=system_prompt)]
-        messages.extend(state.get("messages", [])[-8:])
+        
+        # Ensure we don't end with an AIMessage unless it's waiting for tool outputs
+        state_msgs = state.get("messages", [])[-8:]
+        from langchain_core.messages import HumanMessage
+        
+        new_state_msgs = []
+        for i, m in enumerate(state_msgs):
+            # If the supervisor just spoke (AIMessage without tool calls), we treat it as a Human instruction
+            if isinstance(m, AIMessage) and not getattr(m, "tool_calls", None) and m.additional_kwargs.get("agent") == "Supervisor":
+                new_state_msgs.append(HumanMessage(content=f"[Supervisor]: {m.content}"))
+            else:
+                new_state_msgs.append(m)
+                
+        # Fallback: if somehow it still ends with an AIMessage (e.g. from another worker), append a prompt
+        if new_state_msgs and isinstance(new_state_msgs[-1], AIMessage) and not getattr(new_state_msgs[-1], "tool_calls", None):
+            new_state_msgs.append(HumanMessage(content="Please continue the task based on the above."))
+
+        messages.extend(new_state_msgs)
 
         response = llm_with_tools.invoke(messages)
         if hasattr(response, "additional_kwargs"):
