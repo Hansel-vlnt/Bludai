@@ -23,14 +23,14 @@ function Toggle({ isChecked, onChange, label }) {
     >
       {({ isSelected, isFocusVisible }) => (
         <span
-          className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
-            isFocusVisible ? 'ring-2 ring-[#cba6f7] ring-offset-2 ring-offset-[#161622]' : ''
-          } ${isSelected ? 'bg-[#cba6f7]' : 'bg-[#313244]'}`}
+          className={`relative inline-flex h-4 w-8 shrink-0 rounded-full border border-white/10 transition-colors duration-150 ease-in-out ${
+            isFocusVisible ? 'ring-2 ring-zinc-400 ring-offset-1 ring-offset-[#18181b]' : ''
+          } ${isSelected ? 'bg-[#cba6f7]' : 'bg-zinc-800'}`}
         >
           <span
-            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full shadow-md transition duration-200 ease-in-out ${
-              isSelected ? 'translate-x-5 bg-[#141420]' : 'translate-x-0 bg-[#a6adc8]'
-            }`}
+            className={`pointer-events-none inline-block h-3 w-3 transform rounded-full transition duration-150 ease-in-out ${
+              isSelected ? 'translate-x-4 bg-[#11111b]' : 'translate-x-0.5 bg-zinc-400'
+            } mt-[1px]`}
           />
         </span>
       )}
@@ -259,87 +259,80 @@ function AgentWorkplaceModal({ onClose, models = [] }) {
   const activeCount = agents.filter(a => a.enabled).length;
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200">
-      <div className="w-full max-w-6xl max-h-[95vh] bg-[#161622] border border-[#2d2e42] rounded-3xl shadow-2xl shadow-black/80 flex flex-col overflow-hidden ring-1 ring-white/10">
+    <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-150">
+      <div className="w-full max-w-5xl h-[88vh] max-h-[850px] bg-[#18181b] border border-white/10 rounded-2xl shadow-2xl shadow-black/80 flex flex-col overflow-hidden">
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-7 py-4.5 border-b border-[#2d2e42] bg-[#141420] rounded-t-3xl">
-          <div className="flex flex-col gap-1">
-            <h3 className="text-lg font-semibold text-[#cdd6f4] flex items-center gap-2">
-              <span className="text-[#cba6f7] font-mono font-bold">&gt;_</span> 
+        <div className="flex items-center justify-between px-6 py-3.5 border-b border-white/5 bg-[#141420] shrink-0">
+          <div className="flex flex-col gap-0.5">
+            <h3 className="text-sm font-semibold text-zinc-100 flex items-center gap-2">
+              <span className="text-zinc-400 font-mono text-xs">&gt;_</span> 
               Multi-Agent Workplace Roster
             </h3>
-            <span className="text-[13px] text-[#a6adc8] font-medium">
-              {activeCount} Active Specialists <span className="text-[#585b70] px-1">•</span> Dynamic Supervisor Orchestration &amp; Tool Whitelisting
+            <span className="text-[11px] text-neutral-400">
+              {activeCount} Active Specialists <span className="text-zinc-600 px-1">•</span> Dynamic Supervisor Orchestration &amp; Tool Whitelisting
             </span>
           </div>
           <button 
-            className="p-2 text-[#a6adc8] hover:text-[#cdd6f4] hover:bg-[#313244] rounded-lg transition-colors" 
+            className="p-1.5 text-zinc-400 hover:text-zinc-200 hover:bg-white/5 rounded-lg transition-colors" 
             onClick={onClose}
           >
-            <X size={20} />
+            <X size={16} />
           </button>
         </div>
 
         {statusMessage && (
-          <div className="flex items-center gap-2 px-6 py-3 bg-[#141420] border-y border-[#383a54] text-[#cdd6f4] text-sm font-medium">
-            <Check size={16} className="text-[#a6e3a1]" /> {statusMessage}
+          <div className="flex items-center gap-2 px-6 py-2.5 bg-emerald-500/10 border-b border-emerald-500/20 text-emerald-400 text-xs font-medium">
+            <Check size={14} /> {statusMessage}
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar bg-[#161622]">
-          {editingAgent ? (
-            /* ================= EDIT / CREATE DRAWER ================= */
-            <AgentEditorForm 
-              initialData={editingAgent} 
-              availableTools={availableTools}
-              models={models}
-              onSave={handleSaveEditor}
-              onCancel={() => setEditingAgent(null)}
-              onApplyTemplate={applyTemplate}
-            />
-          ) : (
-            /* ================= ROSTER OVERVIEW GRID ================= */
-            <div className="p-7 pr-8 sm:pr-9">
-              <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center justify-between gap-4 mb-7 pb-5 border-b border-[#2d2e42]">
-                <div className="flex flex-col gap-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="inline-flex items-center gap-2 px-3 py-1 text-xs font-medium rounded-full bg-[#141420] text-[#cdd6f4] border border-[#2d2e42]">
-                      <span className="w-2 h-2 rounded-full bg-[#a6e3a1]" />
-                      {activeCount} / {agents.length} Enabled
-                    </span>
-                  </div>
-                  <p className="text-[13px] text-[#a6adc8] mt-1">Supervisor dynamically delegates tasks to active specialists below.</p>
+        {editingAgent ? (
+          /* ================= EDIT / CREATE DRAWER ================= */
+          <AgentEditorForm 
+            initialData={editingAgent} 
+            availableTools={availableTools}
+            models={models}
+            onSave={handleSaveEditor}
+            onCancel={() => setEditingAgent(null)}
+            onApplyTemplate={applyTemplate}
+          />
+        ) : (
+          /* ================= ROSTER OVERVIEW GRID ================= */
+          <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar bg-[#161622] p-6">
+            <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center justify-between gap-4 mb-5 pb-4 border-b border-white/5">
+              <div className="flex flex-col gap-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center gap-2 px-2.5 py-1 text-xs font-medium rounded-full bg-white/5 text-zinc-300 border border-white/10">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                    {activeCount} / {agents.length} Enabled
+                  </span>
                 </div>
-                <div className="flex items-center gap-2.5 flex-wrap">
-                  <button className="flex items-center gap-2 px-3.5 py-2 text-xs font-medium text-[#a6adc8] bg-[#222336] border border-[#35374e] rounded-xl hover:bg-[#2d2e42] hover:text-[#cdd6f4] transition-colors" onClick={handleResetDefaults} title="Reset to default agents">
-                    <RotateCcw size={14} /> Reset Defaults
-                  </button>
-                  <button className="flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-[#11111b] bg-[#cba6f7] border border-[#cba6f7] rounded-xl hover:bg-[#b4befe] shadow-md shadow-black/40 transition-all" onClick={startCreateNew}>
-                    <Plus size={14} strokeWidth={2.5} /> New Specialist
-                  </button>
-                </div>
+                <p className="text-xs text-neutral-400 mt-0.5">Supervisor dynamically delegates tasks to active specialists below.</p>
               </div>
-
-              {isLoading ? (
-                <div className="py-20 text-center text-[#a6adc8] animate-pulse flex flex-col items-center gap-3">
-                  <div className="w-8 h-8 border-2 border-t-[#cba6f7] border-[#313244] rounded-full animate-spin"></div>
-                  Loading workplace roster...
-                </div>
-              ) : (
-                <AgentWorkplaceGraph
-                  agents={agents}
-                  models={models}
-                  handleToggleEnabled={handleToggleEnabled}
-                  handleQuickModelChange={handleQuickModelChange}
-                  handleEditAgent={setEditingAgent}
-                  handleDeleteAgent={(agent) => handleDelete(agent.id)}
-                  handleDuplicateAgent={startDuplicate}
-                />
-
-              )}
+              <div className="flex items-center gap-2 flex-wrap">
+                <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-300 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10 hover:text-zinc-100 transition-colors" onClick={handleResetDefaults} title="Reset to default agents">
+                  <RotateCcw size={13} /> Reset Defaults
+                </button>
+                <button className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-[#11111b] bg-[#cba6f7] hover:bg-[#b4befe] rounded-lg shadow-sm transition-all" onClick={startCreateNew}>
+                  <Plus size={14} strokeWidth={2} /> New Specialist
+                </button>
+              </div>
             </div>
-          )}
-        </div>
+
+            {isLoading ? (
+              <div className="py-20 text-center text-zinc-400 animate-pulse flex flex-col items-center gap-3">
+                <div className="w-6 h-6 border-2 border-t-[#cba6f7] border-white/10 rounded-full animate-spin"></div>
+                Loading workplace roster...
+              </div>
+            ) : (
+              <AgentWorkplaceGraph
+                agents={agents}
+                handleToggleEnabled={handleToggleEnabled}
+                handleEditAgent={setEditingAgent}
+              />
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -369,23 +362,24 @@ function AgentEditorForm({ initialData, availableTools, models, onSave, onCancel
   };
 
   return (
-    <form className="flex flex-col p-6 h-full" onSubmit={handleSubmit}>
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-4 border-b border-[#313244]">
-        <h4 className="text-lg font-bold text-[#cdd6f4] flex items-center gap-2">
+    <form className="flex-1 flex flex-col min-h-0 overflow-hidden" onSubmit={handleSubmit}>
+      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-6 custom-scrollbar bg-[#161622]">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5 pb-3.5 border-b border-white/5">
+        <h4 className="text-sm font-semibold text-zinc-100 flex items-center gap-2">
           {formData.isNew ? (
-            <><Plus size={18} className="text-[#cba6f7]" /> Create New Specialist</>
+            <><Plus size={16} className="text-zinc-300" /> Create New Specialist</>
           ) : (
-            <><Edit2 size={18} className="text-[#cba6f7]" /> Edit Specialist: <span className="text-[#cba6f7]">{formData.name}</span></>
+            <><Edit2 size={16} className="text-zinc-300" /> Edit Specialist: <span className="text-zinc-100 font-mono">{formData.name}</span></>
           )}
         </h4>
         
-        <div className="flex items-center flex-wrap gap-2">
-          <span className="text-[11px] font-semibold text-[#a6adc8] uppercase tracking-wide mr-2">Presets:</span>
+        <div className="flex items-center flex-wrap gap-1.5">
+          <span className="text-[11px] font-medium text-neutral-400 uppercase tracking-wide mr-1.5">Presets:</span>
           {PRESET_TEMPLATES.map(tmpl => (
             <button 
               key={tmpl.name} 
               type="button" 
-              className="px-2.5 py-1 text-xs font-medium text-[#cba6f7] border border-[#cba6f7]/30 bg-[#cba6f7]/10 hover:bg-[#cba6f7]/20 rounded transition-colors"
+              className="px-2.5 py-1 text-xs font-medium text-zinc-300 border border-white/10 bg-white/5 hover:bg-white/10 rounded-md transition-colors"
               onClick={() => onApplyTemplate(tmpl)}
             >
               + {tmpl.name}
@@ -394,14 +388,14 @@ function AgentEditorForm({ initialData, availableTools, models, onSave, onCancel
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
         <Input 
           label="Agent Name (Identifier)"
           hint="Used in LangGraph routing nodes and thinking tags."
           value={formData.name} 
           onChange={(val) => setFormData({ ...formData, name: val })} 
           placeholder="e.g. CodeReviewer" 
-          fieldClassName="font-mono text-sm bg-[#141420] border border-[#2d2e42] rounded-xl px-3 py-1.5 text-[#cdd6f4] focus-within:border-[#cba6f7]"
+          fieldClassName="font-mono text-xs bg-[#141420] border border-white/10 rounded-lg px-3 py-1.5 text-zinc-200 focus-within:border-white/30"
           isRequired
         />
 
@@ -411,36 +405,36 @@ function AgentEditorForm({ initialData, availableTools, models, onSave, onCancel
           value={formData.title} 
           onChange={(val) => setFormData({ ...formData, title: val })} 
           placeholder="e.g. Security & Vulnerability Auditor"
-          fieldClassName="text-sm bg-[#141420] border border-[#2d2e42] rounded-xl px-3 py-1.5 text-[#cdd6f4] focus-within:border-[#cba6f7]"
+          fieldClassName="text-xs bg-[#141420] border border-white/10 rounded-lg px-3 py-1.5 text-zinc-200 focus-within:border-white/30"
         />
       </div>
 
-      <div className="mb-6">
+      <div className="mb-5">
         <Input 
           label="Supervisor Delegation Directive (Description)"
           hint="This is injected into the Supervisor's prompt so it knows when to call this specialist."
           value={formData.description} 
           onChange={(val) => setFormData({ ...formData, description: val })} 
           placeholder="e.g. You are a senior security researcher. You review code for..."
-          fieldClassName="text-sm bg-[#141420] border border-[#2d2e42] rounded-xl px-3 py-1.5 text-[#cdd6f4] focus-within:border-[#cba6f7]"
+          fieldClassName="text-xs bg-[#141420] border border-white/10 rounded-lg px-3 py-1.5 text-zinc-200 focus-within:border-white/30"
         />
       </div>
 
-      <div className="mb-6">
+      <div className="mb-5">
         <Textarea 
           label="System Prompt (Instructions)"
           value={formData.system_prompt}
           onChange={(val) => setFormData({ ...formData, system_prompt: val })}
           placeholder="You are an expert... Never guess... Always use tools..."
-          rows={6}
-          fieldClassName="font-mono text-sm bg-[#141420] border border-[#2d2e42] rounded-xl p-3 text-[#cdd6f4] focus-within:border-[#cba6f7]"
+          rows={5}
+          fieldClassName="font-mono text-xs bg-[#141420] border border-white/10 rounded-lg p-3 text-zinc-200 focus-within:border-white/30"
         />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
         <div className="flex flex-col gap-1.5">
-          <label className="text-[13px] font-semibold text-[#cdd6f4] uppercase tracking-wider">Dedicated Model</label>
-          <div className="bg-[#141420] border border-[#2d2e42] rounded-xl px-3 py-2 h-[38px] flex items-center">
+          <label className="text-xs font-medium text-neutral-300 uppercase tracking-wider">Dedicated Model</label>
+          <div className="bg-[#141420] border border-white/10 rounded-lg px-3 py-2 h-[38px] flex items-center">
             <ModelSelector
               selectedModel={formData.model}
               setSelectedModel={(val) => setFormData({ ...formData, model: val })}
@@ -453,9 +447,9 @@ function AgentEditorForm({ initialData, availableTools, models, onSave, onCancel
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <label className="text-[13px] font-semibold text-[#cdd6f4] uppercase tracking-wider flex justify-between">
+          <label className="text-xs font-medium text-neutral-300 uppercase tracking-wider flex justify-between">
             <span>Temperature</span>
-            <span className="text-[#cba6f7] font-mono">{formData.temperature}</span>
+            <span className="text-zinc-300 font-mono">{formData.temperature}</span>
           </label>
           <input 
             type="range" 
@@ -464,66 +458,65 @@ function AgentEditorForm({ initialData, availableTools, models, onSave, onCancel
             step={0.05}
             value={formData.temperature}
             onChange={(e) => setFormData({ ...formData, temperature: parseFloat(e.target.value) })}
-            className="w-full h-2 bg-[#313244] rounded-lg appearance-none cursor-pointer accent-[#cba6f7]"
+            className="w-full h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-[#cba6f7]"
           />
         </div>
       </div>
 
       <div className="col-span-2">
-        <label className="text-[13px] font-semibold text-[#cdd6f4] uppercase tracking-wider mb-2 block">Permitted Capability Tools</label>
-        <p className="text-[13px] text-[#a6adc8] mb-4">
+        <label className="text-xs font-medium text-neutral-300 uppercase tracking-wider mb-1 block">Permitted Capability Tools</label>
+        <p className="text-xs text-neutral-400 mb-3.5">
           Check which tools this specialist is allowed to run. Unchecked tools will be strictly prevented by the Supervisor.
         </p>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {availableTools.map(t => {
             const isChecked = (formData.tools || []).includes(t.id);
             return (
               <div
                 key={t.id}
                 onClick={() => toggleTool(t.id)}
-                className={`flex items-start justify-between p-4 w-full cursor-pointer rounded-xl border transition-all duration-200 ${
+                className={`flex items-start justify-between p-3.5 w-full cursor-pointer rounded-xl border transition-all duration-150 ${
                   isChecked 
-                    ? 'border-[#cba6f7]/60 bg-[#222336] ring-1 ring-[#cba6f7]/30 shadow-md shadow-black/40' 
-                    : 'border-[#2d2e42] bg-[#1a1b28] hover:bg-[#222336] hover:border-[#383a54]'
+                    ? 'border-white/20 bg-white/[0.04] shadow-sm' 
+                    : 'border-white/5 bg-transparent hover:bg-white/[0.02]'
                 }`}
               >
-                <div className="flex-1 text-left w-full pr-3">
+                <div className="flex-1 text-left w-full pr-2.5">
                   <div className="flex justify-between items-start mb-1">
-                    <span className="text-[14px] font-semibold text-[#cdd6f4]">{t.name}</span>
-                    <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider border ${
-                      t.risk === 'high' ? 'border-[#f38ba8]/50 text-[#f38ba8] bg-[#f38ba8]/15' : 
-                      t.risk === 'medium' ? 'border-[#f9e2af]/50 text-[#f9e2af] bg-[#f9e2af]/15' : 
-                      'border-[#383a54] text-[#a6adc8] bg-[#141420]'
-                    }`}>
+                    <span className="text-xs font-medium text-zinc-200">{t.name}</span>
+                    <span className="text-[9px] px-2 py-0.5 rounded font-mono uppercase tracking-wider border border-white/10 text-neutral-400 bg-white/5">
                       {t.category}
                     </span>
                   </div>
-                  <p className="text-[12px] text-[#a6adc8] leading-relaxed">{t.description}</p>
+                  <p className="text-[11px] text-neutral-400 leading-relaxed">{t.description}</p>
                 </div>
-                <Toggle
-                  isChecked={isChecked}
-                  onChange={() => toggleTool(t.id)}
-                  label={`Toggle ${t.name}`}
-                />
+                <div className="shrink-0 pt-0.5">
+                  <Toggle
+                    isChecked={isChecked}
+                    onChange={() => toggleTool(t.id)}
+                    label={`Toggle ${t.name}`}
+                  />
+                </div>
               </div>
             );
           })}
         </div>
       </div>
+      </div>
 
-      <div className="col-span-2 pt-6 mt-4 border-t border-[#2d2e42] flex items-center justify-end gap-3">
+      <div className="px-6 py-3.5 border-t border-white/5 bg-[#141420] flex items-center justify-end gap-2.5 shrink-0">
         <button 
           type="button" 
-          className="px-4 py-2 text-sm font-medium text-[#a6adc8] hover:text-[#cdd6f4] transition-colors"
+          className="px-3.5 py-1.5 text-xs font-medium text-zinc-400 hover:text-zinc-200 transition-colors"
           onClick={onCancel}
         >
           Cancel
         </button>
         <button 
           type="submit" 
-          className="flex items-center gap-2 px-5 py-2 text-sm font-bold text-[#11111b] bg-[#cba6f7] hover:bg-[#b4befe] rounded-xl shadow-md shadow-black/40 transition-all active:scale-[0.98]"
+          className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-[#11111b] bg-[#cba6f7] hover:bg-[#b4befe] rounded-lg shadow-sm transition-all active:scale-[0.98]"
         >
-          <Check size={16} strokeWidth={2.5} />
+          <Check size={14} strokeWidth={2} />
           Save Specialist
         </button>
       </div>

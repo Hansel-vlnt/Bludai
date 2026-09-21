@@ -521,36 +521,36 @@ function App() {
       {/* Main Workspace: Top Bar + Panels */}
       <div className="flex-1 flex flex-col h-full relative bg-[#161622] overflow-hidden min-w-0">
         {/* Workspace Top Bar: Antigravity-style Breadcrumb Header & View Switcher */}
-        <div className="h-[65px] px-6 flex items-center justify-between border-b border-[#2d2e42] bg-[#141420] shrink-0">
+        <div className="h-[52px] px-5 flex items-center justify-between border-b border-white/5 bg-[#141420] shrink-0">
           <div className="flex items-center gap-3">
             {/* Breadcrumb-style navigation */}
             <div className="flex items-center gap-2 text-xs">
-              <span className="text-[#6c7086] font-medium hover:text-[#cdd6f4] transition-colors cursor-default">Bludai</span>
-              <span className="text-[#45475a]">/</span>
-              <span className="text-[#cdd6f4] font-semibold flex items-center gap-1.5">
-                <Cpu size={14} className="text-[#cba6f7]" />
+              <span className="text-zinc-500 font-medium hover:text-zinc-300 transition-colors cursor-default">Bludai</span>
+              <span className="text-zinc-700">/</span>
+              <span className="text-zinc-200 font-medium flex items-center gap-1.5">
+                <Cpu size={14} className="text-zinc-400" />
                 {sessions.find(s => s.thread_id === currentThread)?.title || "Multi-Agent Workspace"}
               </span>
             </div>
 
             {/* Dedicated View Switcher: Stream vs Graph */}
-            <div className="flex items-center p-0.5 bg-[#141420] border border-[#2d2e42] rounded-xl ml-2">
+            <div className="flex items-center p-0.5 bg-zinc-900 border border-white/10 rounded-lg ml-2">
               <button
                 onClick={() => setMainView('stream')}
-                className={`flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                className={`flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md transition-all cursor-pointer ${
                   mainView === 'stream' 
-                    ? 'bg-[#222336] text-[#cdd6f4] border border-[#383a54] shadow-sm' 
-                    : 'text-[#a6adc8] hover:text-[#cdd6f4]'
+                    ? 'bg-zinc-800 text-zinc-100 shadow-sm border border-white/10' 
+                    : 'text-neutral-400 hover:text-zinc-200'
                 }`}
               >
                 Task Stream
               </button>
               <button
                 onClick={() => setMainView('graph')}
-                className={`flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                className={`flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md transition-all cursor-pointer ${
                   mainView === 'graph' 
-                    ? 'bg-[#222336] text-[#cba6f7] border border-[#383a54] shadow-sm' 
-                    : 'text-[#a6adc8] hover:text-[#cdd6f4]'
+                    ? 'bg-zinc-800 text-zinc-100 shadow-sm border border-white/10' 
+                    : 'text-neutral-400 hover:text-zinc-200'
                 }`}
               >
                 Fleet Graph
@@ -559,7 +559,7 @@ function App() {
 
             <button
               onClick={() => setShowWorkplace(true)}
-              className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-xl text-[#a6adc8] bg-[#1a1b28] border border-[#2d2e42] hover:border-[#383a54] hover:text-[#cdd6f4] cursor-pointer transition-all shadow-sm ml-1"
+              className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg text-zinc-300 bg-white/5 border border-white/10 hover:bg-white/10 hover:text-zinc-100 cursor-pointer transition-all ml-1"
               title="Manage dynamic multi-agent roles and tool whitelisting in modal"
             >
               <Users size={13} /> Edit Roster
@@ -568,23 +568,23 @@ function App() {
 
           <div className="flex items-center gap-3">
             <div 
-              className="flex items-center gap-2 text-xs font-semibold text-[#a6adc8] bg-[#141420] px-3 py-1.5 border border-[#2d2e42] rounded-xl shadow-inner"
+              className="flex items-center gap-2 text-xs font-medium text-zinc-400 bg-white/5 px-3 py-1.5 border border-white/10 rounded-lg"
               title={availableModels.length > 0 ? `${availableModels.length} models loaded via 9Router proxy` : "9Router offline or unreachable"}
             >
-              <span className={`w-2 h-2 rounded-full ${availableModels.length > 0 ? 'bg-[#a6e3a1] animate-pulse' : 'bg-[#f9e2af]'}`}></span>
+              <span className={`w-1.5 h-1.5 rounded-full ${availableModels.length > 0 ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`}></span>
               <span>9Router: {availableModels.length > 0 ? `${availableModels.length} Models` : 'Offline'}</span>
             </div>
             
             <button
               onClick={() => setShowTelemetry(prev => !prev)}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all cursor-pointer ${
                 showTelemetry 
-                  ? 'bg-[#cba6f7]/20 border-[#cba6f7]/50 text-[#cba6f7] shadow-sm' 
-                  : 'bg-[#222336] border-[#383a54] text-[#a6adc8] hover:text-[#cdd6f4]'
+                  ? 'bg-white/10 border-white/20 text-zinc-200 shadow-sm' 
+                  : 'bg-white/5 border-white/10 text-neutral-400 hover:text-zinc-200'
               }`}
               title="Toggle Live Telemetry & Tool Output (Ctrl+B)"
             >
-              <Activity size={14} className={showTelemetry ? 'text-[#cba6f7]' : 'text-[#a6adc8]'} />
+              <Activity size={14} className={showTelemetry ? 'text-zinc-200' : 'text-zinc-400'} />
               <span>{showTelemetry ? 'Hide Telemetry' : 'Telemetry'}</span>
               <kbd className="hidden sm:inline-block text-[10px] font-mono opacity-50 ml-0.5 px-1 py-0.2 rounded bg-black/30 border border-white/10">^B</kbd>
             </button>
@@ -599,22 +599,18 @@ function App() {
               <div className="flex-1 flex flex-col p-6 overflow-hidden bg-[#161622]">
                 <div className="flex items-center justify-between mb-3.5">
                   <div className="flex items-center gap-2.5">
-                    <span className="text-sm font-bold text-[#cdd6f4] tracking-tight">Interactive Fleet Topology</span>
-                    <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-md bg-[#cba6f7]/15 text-[#cba6f7] border border-[#cba6f7]/30">
+                    <span className="text-sm font-semibold text-zinc-100 tracking-tight">Interactive Fleet Topology</span>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-white/5 text-zinc-300 border border-white/10">
                       {agents.filter(a => a.enabled).length} / {agents.length} Active Specialists
                     </span>
                   </div>
-                  <span className="text-xs text-[#a6adc8]">Supervisor dynamically coordinates worker nodes</span>
+                  <span className="text-xs text-neutral-400">Supervisor dynamically coordinates worker nodes</span>
                 </div>
                 <div className="flex-1 overflow-hidden relative">
                   <AgentWorkplaceGraph 
                     agents={agents}
-                    models={availableModels}
                     handleToggleEnabled={handleToggleEnabled}
-                    handleQuickModelChange={handleQuickModelChange}
                     handleEditAgent={() => setShowWorkplace(true)}
-                    handleDeleteAgent={() => setShowWorkplace(true)}
-                    handleDuplicateAgent={() => setShowWorkplace(true)}
                   />
                 </div>
               </div>
@@ -623,23 +619,23 @@ function App() {
               <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6 scroll-smooth bg-[#161622]" ref={chatRef}>
             {messages.length === 0 && (
               <div className="flex flex-col items-center justify-center min-h-[85%] max-w-2xl mx-auto py-8 text-center animate-in fade-in duration-300">
-                <div className="w-14 h-14 rounded-2xl bg-[#222336] border border-[#383a54] flex items-center justify-center mb-3.5 shadow-lg shadow-black/40">
-                  <Cpu size={28} className="text-[#cba6f7]" />
+                <div className="w-11 h-11 rounded-xl bg-zinc-900 border border-white/10 flex items-center justify-center mb-3 shadow-md shadow-black/40">
+                  <Cpu size={22} className="text-zinc-200" />
                 </div>
-                <h2 className="text-xl font-bold text-[#cdd6f4] mb-1.5">Bludai Multi-Agent Workspace</h2>
-                <p className="text-xs text-[#a6adc8] max-w-md mb-6">
+                <h2 className="text-lg font-semibold text-zinc-100 mb-1">Bludai Multi-Agent Workspace</h2>
+                <p className="text-xs text-neutral-400 max-w-md mb-6">
                   Supervisor dynamically coordinates Developer, Executor, Reviewer, and Research specialists to complete complex workflows.
                 </p>
 
                 {/* Fleet Capabilities Summary */}
-                <div className="w-full bg-[#222336] border border-[#383a54] rounded-2xl p-4 mb-6 shadow-lg shadow-black/40 text-left">
-                  <div className="flex items-center justify-between mb-3 pb-2.5 border-b border-[#2d2e42]">
-                    <span className="text-[11px] font-bold text-[#cdd6f4] uppercase tracking-wider flex items-center gap-1.5">
-                      <Sparkles size={13} className="text-[#cba6f7]" /> Active Fleet Capabilities
+                <div className="w-full bg-[#18181b] border border-white/5 rounded-xl p-4 mb-6 shadow-md shadow-black/40 text-left">
+                  <div className="flex items-center justify-between mb-3 pb-2.5 border-b border-white/5">
+                    <span className="text-[11px] font-medium text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <Sparkles size={13} className="text-zinc-400" /> Active Fleet Capabilities
                     </span>
                     <button 
                       onClick={() => setMainView('graph')}
-                      className="text-[11px] text-[#cba6f7] hover:text-[#b4befe] hover:underline font-medium cursor-pointer"
+                      className="text-[11px] text-zinc-400 hover:text-zinc-200 font-medium cursor-pointer transition-colors"
                     >
                       View Live Graph &rarr;
                     </button>
@@ -651,12 +647,12 @@ function App() {
                       { id: '3', name: 'CodeReviewer', tools: ['read_file', 'semantic_search'], color: '#FFB300', enabled: true },
                       { id: '4', name: 'Researcher', tools: ['web_search', 'read_file'], color: '#D500F9', enabled: true }
                     ]).filter(a => a.enabled).slice(0, 4).map(a => (
-                      <div key={a.id} className="bg-[#141420] border border-[#2d2e42] rounded-xl p-2.5 flex flex-col">
+                      <div key={a.id} className="bg-white/[0.02] border border-white/5 rounded-lg p-2.5 flex flex-col">
                         <div className="flex items-center gap-1.5 mb-1 min-w-0">
-                          <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: a.color || '#cba6f7' }} />
-                          <span className="text-xs font-bold text-[#cdd6f4] truncate">{a.name}</span>
+                          <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: a.color || '#a1a1aa' }} />
+                          <span className="text-xs font-medium text-zinc-200 truncate">{a.name}</span>
                         </div>
-                        <span className="text-[10px] text-[#a6adc8] truncate font-mono">
+                        <span className="text-[10px] text-neutral-400 truncate font-mono">
                           {a.tools?.length || 0} tools active
                         </span>
                       </div>
@@ -666,7 +662,7 @@ function App() {
 
               {/* Quick-Start Orchestration Prompts */}
               <div className="w-full text-left">
-                <span className="text-[11px] font-bold text-[#a6adc8] uppercase tracking-wider mb-3 block">
+                <span className="text-[11px] font-medium text-neutral-400 uppercase tracking-wider mb-2.5 block">
                   Quick-Start Orchestrations
                 </span>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -695,12 +691,12 @@ function App() {
                     <button
                       key={idx}
                       onClick={() => setInputText(item.prompt)}
-                      className="flex flex-col text-left p-3.5 bg-[#222336] border border-[#383a54] hover:border-[#cba6f7] rounded-xl transition-all hover:-translate-y-0.5 shadow-md shadow-black/30 group cursor-pointer"
+                      className="flex flex-col text-left p-3.5 bg-[#18181b] border border-white/5 hover:border-white/20 rounded-xl transition-all hover:-translate-y-0.5 shadow-sm group cursor-pointer"
                     >
-                      <span className="text-xs font-semibold text-[#cdd6f4] group-hover:text-[#cba6f7] transition-colors mb-1">
+                      <span className="text-xs font-medium text-zinc-200 group-hover:text-zinc-100 transition-colors mb-1">
                         {item.title}
                       </span>
-                      <span className="text-[11px] text-[#a6adc8] leading-snug">
+                      <span className="text-[11px] text-neutral-400 leading-snug">
                         {item.desc}
                       </span>
                     </button>
@@ -718,14 +714,14 @@ function App() {
 
             return (
               <div key={i} className={`flex flex-col gap-1.5 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-[#a6adc8] px-1">
+                <div className="flex items-center gap-1.5 text-xs font-medium text-neutral-400 px-1">
                   {msg.role === 'user' ? <User size={14} /> : <Bot size={14} />}
                   {msg.role === 'user' ? 'You' : 'Bludai'}
                 </div>
                 <div className={`max-w-[85%] rounded-2xl px-6 py-4 text-sm leading-relaxed ${
                   msg.role === 'user' 
-                    ? 'bg-[#282a3f] border border-[#cba6f7]/40 text-[#cdd6f4] shadow-md shadow-black/30' 
-                    : 'bg-[#222336] border border-[#383a54] text-[#cdd6f4] shadow-lg shadow-black/40'
+                    ? 'bg-zinc-800 border border-white/10 text-zinc-100 shadow-sm' 
+                    : 'bg-[#18181b] border border-white/5 text-zinc-200 shadow-md shadow-black/30'
                 }`}>
                   {thinking && (
                     <ThinkingBlock thinking={thinking} duration={msg.duration} />
@@ -798,7 +794,7 @@ function App() {
       )}
 
         {/* Bottom Input Area */}
-        <div className="border-t border-[#2d2e42] bg-[#11111a] px-6 pt-3.5 pb-6 space-y-3 shrink-0">
+        <div className="border-t border-white/5 bg-[#141420] px-6 pt-3 pb-5 space-y-2.5 shrink-0">
           <div className="flex items-center gap-4 flex-wrap">
             <ModelSelector 
               selectedModel={selectedModel}
@@ -810,10 +806,10 @@ function App() {
             />
           </div>
           
-          <div className="flex items-center gap-2 bg-[#222336] border border-[#383a54] rounded-2xl px-4 py-3 focus-within:border-[#cba6f7] focus-within:ring-2 focus-within:ring-[#cba6f7]/25 shadow-lg shadow-black/40 transition-all">
+          <div className="flex items-center gap-2 bg-[#18181b] border border-white/10 rounded-xl px-4 py-3 focus-within:border-white/20 transition-all">
             <textarea
               ref={inputRef}
-              className="flex-1 bg-transparent border-none outline-none text-[#cdd6f4] text-sm resize-none font-sans placeholder:text-[#6c7086]"
+              className="flex-1 bg-transparent border-none outline-none text-zinc-200 text-sm resize-none font-sans placeholder:text-zinc-500"
               placeholder={pendingInterrupt ? "Approve or reject terminal command first..." : "Ask Bludai to coordinate agents... (Ctrl+K)"}
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
@@ -822,12 +818,12 @@ function App() {
               rows={1}
             />
             <button 
-              className="p-2 text-[#cba6f7] hover:text-[#b4befe] disabled:opacity-30 disabled:cursor-not-allowed transition-colors rounded-xl hover:bg-[#cba6f7]/20 cursor-pointer" 
+              className="p-2 text-[#11111b] bg-[#cba6f7] hover:bg-[#b4befe] disabled:opacity-30 disabled:cursor-not-allowed transition-all rounded-lg cursor-pointer shadow-sm" 
               onClick={sendMessage}
               disabled={!inputText.trim() || isTyping || !!pendingInterrupt}
               title="Send prompt"
             >
-              <Send size={16} />
+              <Send size={15} />
             </button>
           </div>
         </div>
