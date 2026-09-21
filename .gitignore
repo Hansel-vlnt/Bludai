@@ -88,9 +88,8 @@ task.md
 .ua/
 docs/
 
-# --- Antigravity & Agent Skills ---
+# --- Antigravity Environment ---
 .antigravity/
-skills/
 
 # --- Screenshots & Images ---
 *.png
