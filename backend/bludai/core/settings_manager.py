@@ -176,4 +176,51 @@ class SettingsManager:
                 "message": str(e)
             }
 
+
+    def test_model_inference(self, model: str, base_url: Optional[str] = None, api_key: Optional[str] = None) -> Dict[str, Any]:
+        """Tests the actual connection by making a minimal chat completion request."""
+        target_url = (base_url or self.get_base_url()).rstrip("/") + "/chat/completions"
+        key = api_key if api_key is not None else self.get_api_key()
+
+        payload = json.dumps({
+            "model": model,
+            "messages": [{"role": "user", "content": "ping"}],
+            "max_tokens": 5
+        }).encode('utf-8')
+
+        req = urllib.request.Request(target_url, data=payload, method="POST")
+        req.add_header("Content-Type", "application/json")
+        if key:
+            req.add_header("Authorization", f"Bearer {key}")
+
+        start_time = time.time()
+        try:
+            with urllib.request.urlopen(req, timeout=10.0) as response:
+                latency_ms = int((time.time() - start_time) * 1000)
+                if response.status == 200:
+                    data = json.loads(response.read().decode("utf-8"))
+                    answer = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                    return {
+                        "status": "success",
+                        "latency_ms": latency_ms,
+                        "message": f"Inference OK! ({latency_ms}ms) Response: {answer.strip()}"
+                    }
+                else:
+                    return {
+                        "status": "error",
+                        "message": f"HTTP {response.status}: {response.reason}"
+                    }
+        except urllib.error.HTTPError as e:
+            err_body = e.read().decode('utf-8', errors='ignore')
+            return {
+                "status": "error",
+                "message": f"HTTP Error {e.code}: {e.reason} - {err_body}"
+            }
+        except Exception as e:
+            return {
+                "status": "error",
+                "message": str(e)
+            }
+
 settings_manager = SettingsManager()
+
