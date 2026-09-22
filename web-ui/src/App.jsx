@@ -801,6 +801,7 @@ function App() {
               setSelectedModel={setSelectedModel}
               availableModels={availableModels}
               label="Supervisor Model"
+              dropUp={true}
               onRefresh={() => fetchModels(true)}
               isRefreshing={isRefreshingModels}
             />

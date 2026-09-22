@@ -136,3 +136,28 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #45475a;
 }
+
+/* Custom scrollbar utility for scrollable panels and dropdowns */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #52525b #141420;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #141420;
+  border-radius: 9999px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #52525b;
+  border-radius: 9999px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #71717a;
+}

@@ -9,10 +9,14 @@ const ModelSelector = ({
   onRefresh,
   isRefreshing = false,
   allowDefault = false,
-  defaultLabel = "Default (Workspace Model)"
+  defaultLabel = "Default (Workspace Model)",
+  dropUp = false,
+  isFullWidth = false,
+  className = ""
 }) => {
   const [showModelMenu, setShowModelMenu] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [menuPlacement, setMenuPlacement] = useState(dropUp ? 'top' : 'bottom');
   const dropdownRef = useRef(null);
 
   useEffect(() => {
@@ -28,6 +32,24 @@ const ModelSelector = ({
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [showModelMenu]);
+
+  useEffect(() => {
+    if (showModelMenu && dropdownRef.current) {
+      if (dropUp) {
+        setMenuPlacement('top');
+        return;
+      }
+      const rect = dropdownRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      // If space below is less than 380px and space above is larger, drop upwards
+      if (spaceBelow < 380 && spaceAbove > spaceBelow) {
+        setMenuPlacement('top');
+      } else {
+        setMenuPlacement('bottom');
+      }
+    }
+  }, [showModelMenu, dropUp]);
 
   let safeSelected = selectedModel;
   if (!safeSelected && !allowDefault) {
@@ -53,26 +75,37 @@ const ModelSelector = ({
   };
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div className={`relative ${isFullWidth ? 'w-full' : 'inline-block'} ${className}`} ref={dropdownRef}>
       <button 
         type="button"
-        className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-gray-300 bg-[#0a0a0a] border border-gray-800 rounded-lg hover:bg-gray-800 hover:border-gray-700 transition-colors cursor-pointer" 
+        className={`flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-zinc-300 bg-[#18181b] border border-white/10 rounded-lg hover:bg-white/5 hover:border-white/20 transition-colors cursor-pointer select-none ${isFullWidth ? 'w-full justify-between h-[38px]' : ''}`} 
         onClick={() => setShowModelMenu(!showModelMenu)}
         title={`Active Model: ${safeSelected}`}
       >
-        <Cpu size={14} className="text-gray-500" />
-        {label ? <span className="text-gray-500">{label}:</span> : null}
-        <strong className="font-semibold text-gray-200">{displayName}</strong>
+        <div className="flex items-center gap-2 min-w-0">
+          <Cpu size={14} className="text-zinc-400 shrink-0" />
+          {label ? <span className="text-neutral-400 shrink-0">{label}:</span> : null}
+          <strong className="font-semibold text-zinc-100 font-mono text-[11px] truncate">{displayName}</strong>
+        </div>
       </button>
       
       {showModelMenu && (
-        <div className="absolute top-full left-0 mt-2 w-80 bg-[#09090b] border border-gray-800 rounded-xl shadow-2xl z-50 overflow-hidden ring-1 ring-white/5">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800/60 text-xs font-semibold text-gray-400 uppercase tracking-wider">
-            <span>9Router Models ({availableModels.length})</span>
+        <div 
+          className={`absolute ${menuPlacement === 'top' ? 'bottom-full mb-2' : 'top-full mt-2'} left-0 w-80 sm:w-96 bg-[#18181b] border border-white/10 rounded-xl shadow-2xl shadow-black/80 z-50 overflow-hidden ring-1 ring-white/5 flex flex-col animate-in fade-in zoom-in-95 duration-100`}
+          style={{ maxHeight: 'min(440px, calc(100vh - 140px))' }}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-2.5 bg-[#141420] border-b border-white/5 text-[11px] font-semibold text-neutral-400 uppercase tracking-wider shrink-0">
+            <span className="flex items-center gap-2">
+              <span>9Router Models</span>
+              <span className="px-1.5 py-0.5 rounded bg-white/5 text-zinc-300 border border-white/10 text-[10px] font-mono">
+                {availableModels.length}
+              </span>
+            </span>
             {onRefresh && (
               <button 
                 type="button"
-                className="p-1 text-gray-500 hover:text-cyan-400 transition-colors"
+                className="p-1 text-zinc-400 hover:text-zinc-200 hover:bg-white/5 rounded transition-colors"
                 onClick={(e) => {
                   e.stopPropagation();
                   onRefresh();
@@ -85,12 +118,13 @@ const ModelSelector = ({
             )}
           </div>
           
-          <div className="px-3 py-2 border-b border-gray-800/60">
+          {/* Search bar */}
+          <div className="p-2.5 bg-[#141420] border-b border-white/5 shrink-0">
             <div className="relative flex items-center">
-              <Search size={12} className="absolute left-2.5 text-gray-600" />
+              <Search size={13} className="absolute left-2.5 text-zinc-500 pointer-events-none" />
               <input 
                 type="text" 
-                className="w-full bg-[#050505] border border-gray-700 text-gray-200 text-xs px-3 py-1.5 pl-7 rounded-lg outline-none focus:border-cyan-500/50 transition-colors" 
+                className="w-full bg-[#18181b] border border-white/10 text-zinc-200 text-xs px-3 py-1.5 pl-8 rounded-lg outline-none focus:border-[#cba6f7]/60 placeholder:text-zinc-500 font-sans transition-colors" 
                 placeholder="Search models..." 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -99,10 +133,14 @@ const ModelSelector = ({
             </div>
           </div>
 
-          <div className="max-h-[300px] overflow-y-auto">
+          {/* Scrollable models list */}
+          <div 
+            className="overflow-y-auto custom-scrollbar divide-y divide-white/5 flex-1 min-h-0" 
+            style={{ maxHeight: '280px' }}
+          >
             {allowDefault && (
               <div 
-                className={`flex items-center justify-between px-4 py-2.5 cursor-pointer transition-colors hover:bg-gray-800/50 ${!safeSelected ? 'bg-cyan-950/20' : ''}`}
+                className={`flex items-center justify-between px-3.5 py-2.5 cursor-pointer transition-colors hover:bg-white/5 ${!safeSelected ? 'bg-[#cba6f7]/15 border-l-2 border-[#cba6f7]' : ''}`}
                 onClick={() => { 
                   setSelectedModel(''); 
                   setShowModelMenu(false); 
@@ -110,13 +148,13 @@ const ModelSelector = ({
                 }}
               >
                 <div className="flex flex-col gap-0.5">
-                  <span className={`text-sm ${!safeSelected ? 'font-semibold text-cyan-400' : 'text-gray-300'}`}>
+                  <span className={`text-xs ${!safeSelected ? 'font-semibold text-zinc-100' : 'text-zinc-300'}`}>
                     {defaultLabel}
                   </span>
-                  <span className="text-[10px] text-gray-600">System</span>
+                  <span className="text-[10px] text-neutral-400 font-mono">System</span>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
-                  {!safeSelected && <Check size={14} className="text-cyan-400" />}
+                  {!safeSelected && <Check size={14} className="text-[#cba6f7]" />}
                 </div>
               </div>
             )}
@@ -127,7 +165,7 @@ const ModelSelector = ({
                 return (
                   <div 
                     key={m.id} 
-                    className={`flex items-center justify-between px-4 py-2.5 cursor-pointer transition-colors hover:bg-gray-800/50 ${isSelected ? 'bg-cyan-950/20' : ''}`}
+                    className={`flex items-center justify-between px-3.5 py-2.5 cursor-pointer transition-colors hover:bg-white/5 ${isSelected ? 'bg-[#cba6f7]/15 border-l-2 border-[#cba6f7]' : ''}`}
                     onClick={() => { 
                       setSelectedModel(m.id); 
                       setShowModelMenu(false); 
@@ -135,24 +173,32 @@ const ModelSelector = ({
                     }}
                     title={m.id}
                   >
-                    <div className="flex flex-col gap-0.5 overflow-hidden">
-                      <span className={`text-sm truncate ${isSelected ? 'font-semibold text-cyan-400' : 'text-gray-300'}`}>
+                    <div className="flex flex-col gap-0.5 overflow-hidden pr-2">
+                      <span className={`text-xs truncate ${isSelected ? 'font-semibold text-zinc-100' : 'text-zinc-300'}`}>
                         {m.name || m.id.split('/').pop()}
                       </span>
-                      <span className="text-[10px] text-gray-600">{prov}</span>
+                      <span className="text-[10px] text-neutral-400 font-mono">{prov}</span>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-400 font-medium uppercase">{m.tag || 'Fast'}</span>
-                      {isSelected && <Check size={14} className="text-cyan-400" />}
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/5 text-zinc-400 font-mono border border-white/10 uppercase">
+                        {m.tag || 'Fast'}
+                      </span>
+                      {isSelected && <Check size={14} className="text-[#cba6f7]" />}
                     </div>
                   </div>
                 );
               })
             ) : (
-              <div className="px-4 py-6 text-center text-xs text-gray-600">
-                {availableModels.length === 0 ? 'No models loaded from 9Router' : 'No matching models'}
+              <div className="px-4 py-8 text-center text-xs text-neutral-400">
+                {availableModels.length === 0 ? 'No models loaded from 9Router' : 'No matching models found'}
               </div>
             )}
+          </div>
+
+          {/* Footer hint */}
+          <div className="px-3.5 py-1.5 bg-[#141420] border-t border-white/5 text-[10px] text-neutral-400 flex items-center justify-between shrink-0">
+            <span>Scroll or type to filter</span>
+            <span className="font-mono text-zinc-400">{filteredModels.length} available</span>
           </div>
         </div>
       )}

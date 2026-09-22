@@ -434,16 +434,15 @@ function AgentEditorForm({ initialData, availableTools, models, onSave, onCancel
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-medium text-neutral-300 uppercase tracking-wider">Dedicated Model</label>
-          <div className="bg-[#141420] border border-white/10 rounded-lg px-3 py-2 h-[38px] flex items-center">
-            <ModelSelector
-              selectedModel={formData.model}
-              setSelectedModel={(val) => setFormData({ ...formData, model: val })}
-              availableModels={models}
-              label="Model"
-              allowDefault={true}
-              defaultLabel="Default (Follow Workspace Model)"
-            />
-          </div>
+          <ModelSelector
+            selectedModel={formData.model}
+            setSelectedModel={(val) => setFormData({ ...formData, model: val })}
+            availableModels={models}
+            label="Model"
+            allowDefault={true}
+            defaultLabel="Default (Follow Workspace Model)"
+            isFullWidth={true}
+          />
         </div>
 
         <div className="flex flex-col gap-1.5">
