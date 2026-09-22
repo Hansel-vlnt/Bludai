@@ -195,11 +195,18 @@ class SettingsManager:
 
         start_time = time.time()
         try:
-            with urllib.request.urlopen(req, timeout=10.0) as response:
+            with urllib.request.urlopen(req, timeout=20.0) as response:
                 latency_ms = int((time.time() - start_time) * 1000)
                 if response.status == 200:
-                    data = json.loads(response.read().decode("utf-8"))
-                    answer = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                    raw_body = response.read().decode("utf-8")
+                    try:
+                        data = json.loads(raw_body)
+                        answer = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                    except json.JSONDecodeError:
+                        import re
+                        matches = re.findall(r'"content"\s*:\s*"([^"]*)"', raw_body)
+                        answer = "".join(matches).replace("\\n", "\n") if matches else "Raw: " + raw_body[:50]
+                        
                     return {
                         "status": "success",
                         "latency_ms": latency_ms,

@@ -47,6 +47,8 @@ def make_worker_node(agent_id: str) -> Callable[[AgentState], dict]:
             llm_with_tools = llm.bind_tools(bound_tools) if bound_tools else llm
 
         # Build message history for worker turn
+        # CRITICAL PROMPT INJECTION FOR FREE MODELS
+        system_prompt += "\n\nIMPORTANT: If you use a tool, you MUST use the native JSON function calling format. Do NOT output raw <tool_call> XML blocks."
         messages = [SystemMessage(content=system_prompt)]
         
         # Ensure we don't end with an AIMessage unless it's waiting for tool outputs
@@ -68,6 +70,20 @@ def make_worker_node(agent_id: str) -> Callable[[AgentState], dict]:
         messages.extend(new_state_msgs)
 
         response = llm_with_tools.invoke(messages)
+        
+        # Self-correction loop for free/open-source models
+        retries = 2
+        while retries > 0:
+            if not getattr(response, "tool_calls", None) and ("<tool_call>" in response.content or '{"name"' in response.content):
+                messages.extend([
+                    response,
+                    HumanMessage(content="Error: Invalid tool call format. You must use the strict JSON function calling format defined by the API, not raw text or XML. Please try again.")
+                ])
+                response = llm_with_tools.invoke(messages)
+                retries -= 1
+            else:
+                break
+
         if hasattr(response, "additional_kwargs"):
             response.additional_kwargs["agent"] = agent_name
             response.additional_kwargs["is_thought"] = True

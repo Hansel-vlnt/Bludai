@@ -67,4 +67,5 @@ def get_llm_client(role: str = None, model_id: str = None, temperature: Optional
     if temperature is not None:
         kwargs["temperature"] = temperature
         
+    print(f"\n    [SYSTEM] Instantiating LLM for '{role or 'unknown'}' using model: {model_name}")
     return ChatOpenAI(**kwargs)
