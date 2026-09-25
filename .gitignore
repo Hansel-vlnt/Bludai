@@ -88,8 +88,10 @@ task.md
 .ua/
 docs/
 
-# --- Antigravity Environment ---
+# --- Antigravity Environment & Knowledge Graphs ---
 .antigravity/
+graphify-out/
+.agents/
 
 # --- Screenshots & Images ---
 *.png

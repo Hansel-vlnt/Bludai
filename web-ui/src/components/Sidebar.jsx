@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Cpu, Plus, Power, Settings, Users, MessageSquare, ExternalLink, Bot, Code, Terminal, ShieldCheck, Search, Pencil, Trash2, Check, X } from 'lucide-react';
+import { Cpu, Plus, Power, Settings, Users, MessageSquare, Bot, Code, Terminal, ShieldCheck, Search, Pencil, Trash2, Check, X } from 'lucide-react';
 
 const ICON_MAP = {
   Code: Code,
@@ -17,6 +17,7 @@ const Sidebar = ({
   handleExit, 
   setShowSettings, 
   setShowWorkplace,
+  onSelectAgent,
   agents: propAgents,
   refreshSessions
 }) => {
@@ -117,27 +118,27 @@ const Sidebar = ({
   };
 
   return (
-    <div className="w-[300px] h-full border-r border-white/5 flex flex-col bg-[#161622] shrink-0 select-none z-10">
+    <div className="w-[300px] h-full border-r border-white/[0.08] flex flex-col bg-[#14161d] shrink-0 select-none z-10">
       {/* Brand Header */}
-      <div className="h-[52px] px-4 flex items-center justify-between border-b border-white/5 bg-[#141420] shrink-0">
+      <div className="h-[52px] px-4 flex items-center justify-between border-b border-white/[0.08] bg-[#14161d] shrink-0">
         <div className="flex items-center gap-2.5">
-          <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-zinc-900 border border-white/10 text-zinc-200">
+          <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-[#0d0e12] border border-white/[0.08] text-zinc-200">
             <Cpu size={15} />
           </div>
           <div className="flex flex-col">
             <span className="text-xs font-semibold text-zinc-100 tracking-tight">Bludai AI</span>
-            <span className="text-[10px] font-mono text-neutral-400 leading-none">Multi-Agent OS</span>
+            <span className="text-[10px] font-mono text-zinc-400 leading-none">Multi-Agent OS</span>
           </div>
         </div>
-        <span className="px-1.5 py-0.5 rounded text-[10px] font-mono text-zinc-400 bg-white/5 border border-white/10">
+        <span className="px-1.5 py-0.5 rounded text-[10px] font-mono text-zinc-400 bg-white/5 border border-white/[0.08]">
           v2.0
         </span>
       </div>
       
-      {/* Action / New Chat Button: Antigravity subtle button */}
+      {/* Action / New Chat Button */}
       <div className="p-3">
         <button 
-          className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium text-zinc-200 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 rounded-lg transition-all cursor-pointer"
+          className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium text-zinc-200 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] hover:border-white/20 rounded-lg transition-all cursor-pointer"
           onClick={handleNewChat}
         >
           <Plus size={14} strokeWidth={2} className="text-zinc-300" /> New Orchestration
@@ -145,12 +146,12 @@ const Sidebar = ({
       </div>
 
       {/* 1. Multi-Agent Fleet Roster */}
-      <div className="px-3 pb-3 border-b border-white/5">
-        <div className="flex items-center justify-between px-2.5 py-1.5 mb-2 bg-white/[0.02] border border-white/5 rounded-lg">
-          <div className="flex items-center gap-1.5 text-[11px] font-medium text-neutral-300 uppercase tracking-wider">
+      <div className="px-3 pb-3 border-b border-white/[0.08]">
+        <div className="flex items-center justify-between px-2.5 py-1.5 mb-2 bg-[#0d0e12]/50 border border-white/[0.08] rounded-lg">
+          <div className="flex items-center gap-1.5 text-[11px] font-medium text-zinc-300 uppercase tracking-wider">
             <Users size={12} className="text-zinc-400" />
             <span>Active Fleet</span>
-            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-white/5 text-zinc-400 border border-white/10">
+            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-white/5 text-zinc-400 border border-white/[0.08]">
               {activeAgents.length}
             </span>
           </div>
@@ -167,14 +168,15 @@ const Sidebar = ({
             <div className="text-[11px] text-zinc-500 text-center py-2 italic">Loading fleet...</div>
           ) : (
             agents.map(a => {
-              const IconComp = ICON_MAP[a.icon] || Bot;
+              const _IconComp = ICON_MAP[a.icon] || Bot;
               return (
                 <div 
                   key={a.id}
-                  onClick={() => setShowWorkplace(true)}
+                  onClick={() => onSelectAgent ? onSelectAgent(a) : setShowWorkplace(true)}
+                  title={`Configure ${a.name}`}
                   className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg border transition-all cursor-pointer ${
                     a.enabled 
-                      ? 'bg-white/[0.03] border-white/10 hover:border-white/20' 
+                      ? 'bg-white/[0.02] border-white/[0.08] hover:border-white/20' 
                       : 'bg-transparent border-transparent opacity-40 hover:opacity-80'
                   }`}
                 >
@@ -187,13 +189,13 @@ const Sidebar = ({
                     />
                     <div className="flex flex-col min-w-0">
                       <span className="text-xs font-medium text-zinc-200 truncate">{a.name}</span>
-                      <span className="text-xs text-neutral-400 truncate">{a.title || 'Specialist'}</span>
+                      <span className="text-[11px] text-zinc-400 truncate">{a.title || 'Specialist'}</span>
                     </div>
                   </div>
                   <span className={`text-[9px] font-mono uppercase px-1.5 py-0.5 rounded border shrink-0 ${
                     a.enabled 
-                      ? 'bg-white/5 text-zinc-300 border-white/10' 
-                      : 'bg-transparent text-zinc-500 border-white/5'
+                      ? 'bg-white/5 text-zinc-300 border-white/[0.08]' 
+                      : 'bg-transparent text-zinc-500 border-white/[0.05]'
                   }`}>
                     {a.enabled ? 'ON' : 'OFF'}
                   </span>
@@ -206,12 +208,12 @@ const Sidebar = ({
       
       {/* 2. Session History List */}
       <div className="flex-1 overflow-y-auto px-3 py-3 custom-scrollbar">
-        <div className="flex items-center justify-between px-2.5 py-1.5 mb-2.5 bg-white/[0.02] border border-white/5 rounded-lg">
-          <div className="flex items-center gap-1.5 text-[11px] font-medium text-neutral-300 uppercase tracking-wider">
+        <div className="flex items-center justify-between px-2.5 py-1.5 mb-2.5 bg-[#0d0e12]/50 border border-white/[0.08] rounded-lg">
+          <div className="flex items-center gap-1.5 text-[11px] font-medium text-zinc-300 uppercase tracking-wider">
             <MessageSquare size={12} className="text-zinc-400" />
             <span>Recent Sessions</span>
           </div>
-          <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-white/5 text-zinc-400 border border-white/10">
+          <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-white/5 text-zinc-400 border border-white/[0.08]">
             {sessions.length}
           </span>
         </div>
@@ -223,7 +225,7 @@ const Sidebar = ({
             <div key={dateLabel} className="space-y-1 mb-3.5 last:mb-0">
               <div className="text-[10px] font-medium uppercase tracking-wider text-zinc-500 px-2 py-0.5 flex items-center gap-2">
                 <span>{dateLabel}</span>
-                <div className="flex-1 h-px bg-white/5" />
+                <div className="flex-1 h-px bg-white/[0.08]" />
               </div>
               {groupList.map(s => {
                 const isActive = s.thread_id === currentThread;
@@ -235,8 +237,8 @@ const Sidebar = ({
                     key={s.thread_id} 
                     className={`group relative w-full text-left px-2.5 py-2 rounded-lg cursor-pointer transition-all border ${
                       isActive 
-                        ? 'bg-white/10 border-white/15 text-zinc-100 shadow-sm' 
-                        : 'bg-transparent border-transparent text-zinc-400 hover:bg-white/5 hover:text-zinc-200'
+                        ? 'bg-white/[0.08] border-white/20 text-zinc-100 shadow-sm' 
+                        : 'bg-transparent border-transparent text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-200'
                     }`}
                     onClick={() => {
                       if (!isEditing && !isDeleting) loadSession(s.thread_id);
@@ -245,15 +247,15 @@ const Sidebar = ({
                     {isEditing ? (
                       <div className="flex items-center gap-1.5 w-full" onClick={e => e.stopPropagation()}>
                         <input 
-                          type="text"
-                          value={editTitle}
-                          onChange={e => setEditTitle(e.target.value)}
+                          type="text" 
+                          value={editTitle} 
+                          onChange={e => setEditTitle(e.target.value)} 
                           onKeyDown={e => {
                             if (e.key === 'Enter') handleSaveRename(s.thread_id);
                             if (e.key === 'Escape') setEditingId(null);
                           }}
                           autoFocus
-                          className="flex-1 bg-[#141420] border border-white/20 rounded-md px-2 py-0.5 text-xs text-zinc-200 outline-none focus:border-white/40"
+                          className="flex-1 bg-[#0d0e12] border border-white/20 rounded-md px-2 py-0.5 text-xs text-zinc-200 outline-none focus:border-white/40"
                         />
                         <button 
                           onClick={() => handleSaveRename(s.thread_id)} 
@@ -316,7 +318,7 @@ const Sidebar = ({
                             </button>
                           </div>
                         </div>
-                        <div className="text-[10px] text-neutral-400 opacity-60 mt-0.5 flex items-center justify-between">
+                        <div className="text-[10px] text-zinc-400 opacity-60 mt-0.5 flex items-center justify-between">
                           <span>{formatRelativeTime(s.updated_at || s.created_at)}</span>
                         </div>
                       </>
@@ -330,23 +332,23 @@ const Sidebar = ({
       </div>
       
       {/* Bottom Action Bar */}
-      <div className="border-t border-white/5 bg-[#141420] p-3 space-y-2">
+      <div className="border-t border-white/[0.08] bg-[#14161d] p-3 space-y-2">
         <button 
           onClick={() => setShowWorkplace(true)}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium text-zinc-300 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10 hover:border-white/20 transition-all cursor-pointer"
+          className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium text-zinc-300 bg-white/[0.04] border border-white/[0.08] rounded-lg hover:bg-white/[0.08] hover:border-white/20 transition-all cursor-pointer"
         >
           <span>Fleet Workplace Roster</span>
         </button>
         <div className="grid grid-cols-2 gap-2">
           <button 
             onClick={() => setShowSettings(true)}
-            className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-400 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10 hover:text-zinc-200 transition-all cursor-pointer"
+            className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-400 bg-white/[0.04] border border-white/[0.08] rounded-lg hover:bg-white/[0.08] hover:text-zinc-200 transition-all cursor-pointer"
           >
             <Settings size={13} /> Settings
           </button>
           <button 
             onClick={handleExit}
-            className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-400 bg-white/5 border border-white/10 rounded-lg hover:bg-rose-500/10 hover:text-rose-400 hover:border-rose-500/20 transition-all cursor-pointer"
+            className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-400 bg-white/[0.04] border border-white/[0.08] rounded-lg hover:bg-rose-500/10 hover:text-rose-400 hover:border-rose-500/20 transition-all cursor-pointer"
           >
             <Power size={13} /> Exit
           </button>

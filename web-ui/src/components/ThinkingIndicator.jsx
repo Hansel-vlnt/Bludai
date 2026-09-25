@@ -1,11 +1,9 @@
 import React, { useState } from 'react';
-import ReactMarkdown from 'react-markdown';
 import { ChevronRight, ChevronDown, Terminal, Globe, Loader2 } from 'lucide-react';
 
 /**
  * Live Reasoning Trace Streaming Indicator.
- * Matches Image 1: Blue-outlined pill on top, followed by "Thinking for Xs"
- * and real-time streaming reasoning steps and active tool traces.
+ * Antigravity Dark Slate palette.
  */
 function ThinkingIndicator({ 
   elapsedSeconds = 0, 
@@ -34,43 +32,43 @@ function ThinkingIndicator({
   const formattedDuration = `${elapsedSeconds.toFixed(1)}s`;
 
   return (
-    <div className="border border-gray-800 rounded-xl bg-[#0a0a0a] overflow-hidden mb-3">
+    <div className="border border-white/[0.08] rounded-xl bg-[#0d0e12] overflow-hidden mb-3">
       {/* Top Header */}
       <div 
-        className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-gray-800/30 transition-colors"
+        className="flex items-center justify-between px-4 py-2.5 cursor-pointer hover:bg-white/[0.03] transition-colors"
         onClick={() => setIsExpanded(!isExpanded)}
         title="Click to toggle live reasoning stream"
       >
-        <div className="flex items-center gap-3 text-sm text-gray-300">
-          <div className="w-4 h-4 border-2 border-t-cyan-500 border-gray-800 rounded-full animate-spin" />
-          <span>{statusText}</span>
+        <div className="flex items-center gap-2.5 text-xs text-zinc-300">
+          <div className="w-3.5 h-3.5 border-2 border-t-zinc-200 border-white/20 rounded-full animate-spin" />
+          <span className="truncate">{statusText}</span>
         </div>
-        <div className="flex items-center gap-3 text-gray-500">
-          <span className="text-xs text-gray-600 font-mono">{formattedDuration}</span>
-          {isExpanded ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+        <div className="flex items-center gap-2.5 text-zinc-500 shrink-0">
+          <span className="text-[11px] text-zinc-500 font-mono">{formattedDuration}</span>
+          {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
         </div>
       </div>
 
       {/* Live Expanded Trace */}
       {isExpanded && (
-        <div className="px-4 py-3 border-t border-gray-800/60">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs text-gray-600 font-mono">
+        <div className="px-4 py-3 border-t border-white/[0.08]">
+          <div className="flex items-center justify-between mb-2.5">
+            <span className="text-[11px] text-zinc-500 font-mono">
               Thinking for {formattedDuration}
             </span>
-            <Loader2 size={12} className="animate-spin text-cyan-400" />
+            <Loader2 size={12} className="animate-spin text-zinc-400" />
           </div>
 
           {/* Live Thoughts Stream */}
-          <div className="space-y-2 mt-2">
+          <div className="space-y-1.5 mt-2">
             {liveThoughts.length > 0 ? (
               liveThoughts.map((t, idx) => (
-                <div key={idx} className="flex items-start gap-2 text-sm text-gray-400 pl-2 border-l-2 border-gray-800">
+                <div key={idx} className="flex items-start gap-2 text-xs text-zinc-300 pl-2.5 border-l-2 border-white/10 font-mono">
                   {t.content.replace(/^[\s•*-]+/, '')}
                 </div>
               ))
             ) : (
-              <div className="flex items-start gap-2 text-sm text-gray-400 pl-2 border-l-2 border-gray-800 text-gray-500">
+              <div className="flex items-start gap-2 text-xs text-zinc-500 pl-2.5 border-l-2 border-white/10 font-mono">
                 Interpreting request and evaluating architectural requirements...
               </div>
             )}
@@ -78,21 +76,21 @@ function ThinkingIndicator({
 
           {/* Live Running Tools */}
           {liveTools.length > 0 && (
-            <div className="space-y-2 mt-4 pt-3 border-t border-gray-800/30">
+            <div className="space-y-1.5 mt-3 pt-2.5 border-t border-white/[0.08]">
               {liveTools.map((tool, idx) => {
-                let icon = <Terminal size={13} className="shrink-0 text-cyan-400" />;
+                let icon = <Terminal size={12} className="shrink-0 text-zinc-400" />;
                 let label = `Executing ${tool.name}...`;
 
                 if (tool.name.toLowerCase().includes('search') || tool.name.toLowerCase().includes('web')) {
-                  icon = <Globe size={13} className="shrink-0 text-cyan-400" />;
+                  icon = <Globe size={12} className="shrink-0 text-zinc-400" />;
                   label = `Live Web Search: ${tool.name}...`;
                 }
 
                 return (
-                  <div key={idx} className="flex items-center gap-2 text-xs text-gray-500 bg-gray-900/50 rounded px-2 py-1">
+                  <div key={idx} className="flex items-center gap-2 text-xs text-zinc-400 bg-white/[0.03] border border-white/[0.08] rounded-lg px-2.5 py-1.5 font-mono">
                     {icon}
-                    <span className="font-medium text-gray-300">{label}</span>
-                    <span className="ml-auto text-cyan-500 animate-pulse">{tool.status || 'running'}</span>
+                    <span className="text-zinc-200 truncate">{label}</span>
+                    <span className="ml-auto text-[10px] text-amber-400 animate-pulse uppercase">{tool.status || 'running'}</span>
                   </div>
                 );
               })}

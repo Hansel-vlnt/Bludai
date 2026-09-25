@@ -6,23 +6,22 @@
   --font-sans: 'Inter', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 
-  /* Catppuccin Mocha Palette (Verified from catppuccin.com) */
-  --color-crust: #11111b;
-  --color-mantle: #181825;
-  --color-base: #1e1e2e;
-  --color-surface0: #313244;
-  --color-surface1: #45475a;
-  --color-surface2: #585b70;
-  --color-overlay0: #6c7086;
-  --color-text: #cdd6f4;
-  --color-subtext0: #a6adc8;
-  --color-subtext1: #bac2de;
+  /* Unified Dark Slate Palette */
+  --color-workspace: #0d0e12;
+  --color-surface: #14161d;
+  --color-surface-elevated: #1a1c26;
+  --color-code: #161822;
+  --color-border-hairline: rgba(255, 255, 255, 0.08);
 
-  /* Semantic status colors (Verified from catppuccin.com) */
-  --color-status-ready: #a6e3a1;     /* Catppuccin Green */
-  --color-status-running: #f9e2af;   /* Catppuccin Yellow */
-  --color-status-error: #f38ba8;     /* Catppuccin Red */
-  --color-status-supervisor: #cba6f7;/* Catppuccin Mauve */
+  --color-text: #e2e8f0;
+  --color-subtext0: #94a3b8;
+  --color-subtext1: #cbd5e1;
+
+  /* Functional status indicators */
+  --color-status-ready: #10b981;
+  --color-status-running: #f59e0b;
+  --color-status-error: #ef4444;
+  --color-status-supervisor: #8b5cf6;
 }
 
 :root {
@@ -37,8 +36,8 @@
 
 body {
   font-family: 'Inter', sans-serif;
-  background-color: #11111b;
-  color: #cdd6f4;
+  background-color: #0d0e12;
+  color: #e2e8f0;
   height: 100vh;
   overflow: hidden;
   display: flex;
@@ -66,31 +65,33 @@ body {
 }
 
 .markdown-body pre {
-  background: #181825;
+  background: #161822;
   padding: 0.75rem;
   border-radius: 0.5rem;
   overflow-x: auto;
   margin: 0.75rem 0;
-  border: 1px solid #313244;
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .markdown-body code {
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.85em;
-  background: #313244;
-  color: #cba6f7;
+  background: #161822;
+  color: #e2e8f0;
   padding: 0.125rem 0.25rem;
   border-radius: 0.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .markdown-body pre code {
   background: transparent;
   color: inherit;
   padding: 0;
+  border: none;
 }
 
 .markdown-body a {
-  color: #89b4fa;
+  color: #60a5fa;
   text-decoration: underline;
 }
 
@@ -107,13 +108,13 @@ body {
 }
 
 .markdown-body h1, .markdown-body h2, .markdown-body h3, .markdown-body h4 {
-  color: #f5e0dc;
+  color: #f8fafc;
   font-weight: 600;
   margin-top: 1rem;
   margin-bottom: 0.5rem;
 }
 
-/* Tailwind Utilities needed that aren't natively supported everywhere yet */
+/* Tailwind Utilities */
 .scroll-smooth {
   scroll-behavior: smooth;
 }
@@ -129,18 +130,18 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #313244;
+  background: rgba(255, 255, 255, 0.12);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #45475a;
+  background: rgba(255, 255, 255, 0.2);
 }
 
 /* Custom scrollbar utility for scrollable panels and dropdowns */
 .custom-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: #52525b #141420;
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
 }
 
 .custom-scrollbar::-webkit-scrollbar {
@@ -149,15 +150,14 @@ body {
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: #141420;
-  border-radius: 9999px;
+  background: transparent;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #52525b;
+  background: rgba(255, 255, 255, 0.12);
   border-radius: 9999px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #71717a;
+  background: rgba(255, 255, 255, 0.2);
 }

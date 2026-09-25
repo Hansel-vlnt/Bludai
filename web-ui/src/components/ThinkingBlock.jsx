@@ -1,13 +1,9 @@
 import React, { useState } from 'react';
-import ReactMarkdown from 'react-markdown';
-import { ChevronDown, ChevronRight, Copy, Check, Terminal, Globe, FileCode, Search } from 'lucide-react';
+import { ChevronDown, ChevronRight, Copy, Check, Terminal, Globe, FileCode } from 'lucide-react';
 
 /**
  * Thinking & Reasoning Trace Block.
- * Matches user's exact references:
- * - Image 1: Blue-outlined summary pill on top with dropdown chevron,
- *   followed by "Thought for Xs" and clean chain-of-thought reasoning lines.
- * - Image 2: Clean action/tool traces ("Ran command >", "Live Web Search >").
+ * Antigravity Dark Slate palette.
  */
 function ThinkingBlock({ thinking, duration }) {
   const [isExpanded, setIsExpanded] = useState(true);
@@ -83,41 +79,41 @@ function ThinkingBlock({ thinking, duration }) {
   }
 
   return (
-    <div className="border border-gray-800 rounded-xl bg-[#0a0a0a] overflow-hidden mb-3">
+    <div className="border border-white/[0.08] rounded-xl bg-[#0d0e12] overflow-hidden mb-3">
       {/* Top Header */}
       <div 
-        className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-gray-800/30 transition-colors"
+        className="flex items-center justify-between px-4 py-2.5 cursor-pointer hover:bg-white/[0.03] transition-colors"
         onClick={() => setIsExpanded(!isExpanded)}
         title="Click to toggle reasoning trace"
       >
-        <div className="flex items-center gap-2 text-sm text-gray-400">
+        <div className="flex items-center gap-2 text-xs text-zinc-300">
           <span>{summaryTitle}</span>
         </div>
-        <div className="text-gray-500 transition-transform">
-          {isExpanded ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+        <div className="text-zinc-500 transition-transform">
+          {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
         </div>
       </div>
 
       {/* Expanded Details Card */}
       {isExpanded && (
-        <div className="px-4 py-3 border-t border-gray-800/60">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs text-gray-600 font-mono">
+        <div className="px-4 py-3 border-t border-white/[0.08]">
+          <div className="flex items-center justify-between mb-2.5">
+            <span className="text-[11px] text-zinc-500 font-mono">
               Thought for {formattedDuration}
             </span>
             <button 
-              className="p-1.5 text-gray-500 hover:text-white transition-colors rounded flex items-center gap-1" 
+              className="p-1 text-zinc-500 hover:text-zinc-200 transition-colors rounded flex items-center gap-1 cursor-pointer" 
               onClick={handleCopy}
               title="Copy reasoning trace"
             >
               {copied ? <Check size={11} className="text-emerald-400" /> : <Copy size={11} />}
-              <span className={copied ? "text-xs text-emerald-400" : "text-xs"}>{copied ? 'Copied' : 'Copy'}</span>
+              <span className={copied ? "text-[11px] text-emerald-400" : "text-[11px]"}>{copied ? 'Copied' : 'Copy'}</span>
             </button>
           </div>
 
           {/* Thought Sentences */}
           {thoughtLines.length > 0 && (
-            <div className="text-sm text-gray-300 font-mono leading-relaxed mb-4">
+            <div className="text-xs text-zinc-300 font-mono leading-relaxed mb-3">
               {thoughtLines.map((line, idx) => (
                 <div key={idx} className="mb-1">
                   {line}
@@ -128,36 +124,36 @@ function ThinkingBlock({ thinking, duration }) {
 
           {/* Tool Action Traces */}
           {toolActions.length > 0 && (
-            <div className="space-y-2 mt-4 pt-3 border-t border-gray-800/30">
+            <div className="space-y-1.5 mt-3 pt-2.5 border-t border-white/[0.08]">
               {toolActions.map((tool, idx) => {
                 const isToolOpen = expandedToolIdx === idx;
-                let icon = <Terminal size={13} className="shrink-0 mt-0.5 text-cyan-400" />;
+                let icon = <Terminal size={12} className="shrink-0 mt-0.5 text-zinc-400" />;
                 let label = `Ran command: ${tool.name}`;
                 
                 if (tool.name.toLowerCase().includes('search') || tool.name.toLowerCase().includes('web')) {
-                  icon = <Globe size={13} className="shrink-0 mt-0.5 text-cyan-400" />;
+                  icon = <Globe size={12} className="shrink-0 mt-0.5 text-zinc-400" />;
                   label = `Live Web Search: ${tool.name}`;
                 } else if (tool.name.toLowerCase().includes('file')) {
-                  icon = <FileCode size={13} className="shrink-0 mt-0.5 text-cyan-400" />;
+                  icon = <FileCode size={12} className="shrink-0 mt-0.5 text-zinc-400" />;
                   label = `File operation: ${tool.name}`;
                 }
 
                 return (
-                  <div key={tool.id} className="flex flex-col border-b border-gray-800/30 last:border-0 pb-2">
+                  <div key={tool.id} className="flex flex-col border-b border-white/[0.04] last:border-0 pb-1.5">
                     <div 
                       className="flex items-center justify-between cursor-pointer py-1"
                       onClick={() => toggleToolDetail(idx)}
                     >
-                      <div className="flex items-start gap-3 flex-1">
+                      <div className="flex items-start gap-2.5 flex-1 min-w-0">
                         {icon}
-                        <span className="text-sm font-medium text-gray-200">{label}</span>
+                        <span className="text-xs font-mono text-zinc-300 truncate">{label}</span>
                       </div>
-                      <div className="text-gray-500">
-                        {isToolOpen ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+                      <div className="text-zinc-500">
+                        {isToolOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                       </div>
                     </div>
                     {isToolOpen && tool.content && (
-                      <pre className="text-xs text-gray-500 font-mono mt-2 bg-gray-900/50 p-2 rounded overflow-x-auto">{tool.content}</pre>
+                      <pre className="text-[11px] text-zinc-400 font-mono mt-1.5 bg-[#161822] p-2 rounded-lg border border-white/[0.08] overflow-x-auto">{tool.content}</pre>
                     )}
                   </div>
                 );
