@@ -72,9 +72,15 @@ def make_worker_node(agent_id: str) -> Callable[[AgentState], dict]:
         response = llm_with_tools.invoke(messages)
         
         # Self-correction loop for free/open-source models
+        import re
         retries = 2
         while retries > 0:
-            if not getattr(response, "tool_calls", None) and ("<tool_call>" in response.content or '{"name"' in response.content):
+            content_str = str(getattr(response, "content", ""))
+            is_malformed = not getattr(response, "tool_calls", None) and (
+                "<tool_call>" in content_str or 
+                re.search(r'^\s*\{\s*"name"\s*:\s*".*?",\s*"arguments"\s*:', content_str, re.MULTILINE) is not None
+            )
+            if is_malformed:
                 messages.extend([
                     response,
                     HumanMessage(content="Error: Invalid tool call format. You must use the strict JSON function calling format defined by the API, not raw text or XML. Please try again.")

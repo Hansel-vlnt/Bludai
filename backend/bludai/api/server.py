@@ -60,14 +60,22 @@ def extract_or_estimate_tokens(messages, start_idx=0, prompt_text="", reply_text
     
     # Fallback to character estimation (~4 chars/token) if provider omits token usage
     if (input_tokens + output_tokens) == 0:
-        p_len = len(prompt_text)
-        if not p_len:
-            for msg in messages[:start_idx]:
-                p_len += len(str(getattr(msg, "content", "")))
-        r_len = len(reply_text)
-        if not r_len:
-            for msg in messages[start_idx:]:
-                r_len += len(str(getattr(msg, "content", "")))
+        p_len = 0
+        for msg in messages[:start_idx]:
+            p_len += len(str(getattr(msg, "content", "")))
+            if getattr(msg, "tool_calls", None):
+                p_len += sum(len(str(tc)) for tc in msg.tool_calls)
+        if p_len == 0:
+            p_len = len(prompt_text)
+            
+        r_len = 0
+        for msg in messages[start_idx:]:
+            r_len += len(str(getattr(msg, "content", "")))
+            if getattr(msg, "tool_calls", None):
+                r_len += sum(len(str(tc)) for tc in msg.tool_calls)
+        if r_len == 0:
+            r_len = len(reply_text)
+            
         input_tokens = max(1, p_len // 4)
         output_tokens = max(1, r_len // 4)
         

@@ -6,11 +6,15 @@ console = Console()
 
 WORKSPACE_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../"))
 
+from evals.path_sanitizer import safe_join_and_resolve
+
 def _enforce_jail(filepath: str) -> str:
-    abs_path = os.path.abspath(filepath)
-    if not abs_path.startswith(WORKSPACE_ROOT):
-        raise PermissionError(f"Path traversal blocked: Cannot access paths outside of {WORKSPACE_ROOT}")
-    return abs_path
+    try:
+        # safe_join_and_resolve handles all path traversal defenses including bounds checking
+        abs_path = safe_join_and_resolve(WORKSPACE_ROOT, filepath)
+        return str(abs_path)
+    except Exception as e:
+        raise PermissionError(f"Path traversal blocked: {e}")
 
 @tool
 def create_file(filepath: str, content: str) -> str:
@@ -34,6 +38,11 @@ def read_file(filepath: str) -> str:
             return f"Error: File does not exist at {filepath}"
         with open(abs_path, 'r', encoding='utf-8', errors='ignore') as f:
             content = f.read()
+            
+        if len(content) > 10000:
+            warning = "\n... [WARNING: File content exceeded 10,000 characters and was truncated. Please use line-range inspection if available.] ...\n"
+            content = content[:10000] + warning
+            
         return content
     except Exception as e:
         return f"Error reading file: {e}"

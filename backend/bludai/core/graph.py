@@ -69,8 +69,35 @@ def build_graph():
 
     def route_supervisor(state: AgentState) -> str:
         next_node = state.get("next", "FINISH")
+        cycle_tracker = state.get("cycle_tracker", {})
+        
         if isinstance(next_node, str):
             target = next_node.strip()
+            
+            if target != "FINISH":
+                is_error = False
+                messages = state.get("messages", [])
+                for m in reversed(messages):
+                    content = str(getattr(m, "content", ""))
+                    if getattr(m, "type", "") == "tool" and ("Error" in content or "Permission Denied" in content or "Exception" in content):
+                        is_error = True
+                        break
+                    elif getattr(m, "type", "") == "human" and "Error:" in content:
+                        is_error = True
+                        break
+                    elif "Supervisor Instruction for" in content:
+                        break
+                
+                if is_error:
+                    cycle_tracker[target] = cycle_tracker.get(target, 0) + 1
+                    if cycle_tracker[target] >= 3:
+                        from langgraph.types import interrupt
+                        interrupt({"action": "error", "reason": f"Loop detected: Worker '{target}' failed 3 consecutive times."})
+                        cycle_tracker[target] = 0
+                        return "FINISH"
+                else:
+                    cycle_tracker[target] = 0
+
             if target in route_targets:
                 return target
             # Case-insensitive fallback

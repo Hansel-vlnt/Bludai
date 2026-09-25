@@ -11,3 +11,5 @@ class AgentState(TypedDict, total=False):
     next: str
     # The temperature for model generation (0.0 to 1.0)
     temperature: float
+    # Track repeated tool errors or worker loops to prevent infinite recursion
+    cycle_tracker: dict

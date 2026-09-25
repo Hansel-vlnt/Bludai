@@ -60,6 +60,10 @@ def run_terminal_command(command: str) -> str:
             output.append(f"--- STDERR ---\n{result.stderr}")
             
         output_str = "\n".join(output)
+        if len(output_str) > 2500:
+            total_bytes = len(output_str.encode('utf-8'))
+            output_str = output_str[:1500] + f"\n... [Output truncated: {total_bytes} bytes reduced to 2,500 chars to protect context window] ...\n" + output_str[-1000:]
+            
         if not output_str:
             output_str = "Command finished with no output."
             

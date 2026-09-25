@@ -233,8 +233,9 @@ You MUST respond with a JSON object conforming to this schema:
     new_state_msgs = []
     for m in state.get("messages", []):
         if getattr(m, "type", "") == "ai" and m.additional_kwargs.get("agent") != "Supervisor":
-            agent_source = m.additional_kwargs.get("agent", "Worker")
-            new_state_msgs.append(HumanMessage(content=f"[{agent_source} Output]:\n{m.content}"))
+            # Keep as AIMessage, just ensure name is set properly
+            m.name = m.additional_kwargs.get("agent", "Worker").replace(" ", "_")
+            new_state_msgs.append(m)
         else:
             new_state_msgs.append(m)
 
@@ -289,7 +290,7 @@ You MUST respond with a JSON object conforming to this schema:
         new_messages.append(AIMessage(content=instruction, additional_kwargs={"agent": "Supervisor"}))
     else:
         # Append Supervisor's delegation instruction to direct the worker
-        new_messages.append(SystemMessage(content=f"[Supervisor Instruction for {next_node}]: {instruction}"))
+        new_messages.append(HumanMessage(content=f"[Supervisor Instruction for {next_node}]: {instruction}"))
         
     emit_semantic_event(
         thread_id=thread_id,
