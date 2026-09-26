@@ -4,14 +4,14 @@ from rich.console import Console
 
 console = Console()
 
-WORKSPACE_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../"))
-
 from evals.path_sanitizer import safe_join_and_resolve
+from bludai.core.workspace_manager import workspace_manager
 
 def _enforce_jail(filepath: str) -> str:
     try:
+        active_root = workspace_manager.get_active_path()
         # safe_join_and_resolve handles all path traversal defenses including bounds checking
-        abs_path = safe_join_and_resolve(WORKSPACE_ROOT, filepath)
+        abs_path = safe_join_and_resolve(active_root, filepath)
         return str(abs_path)
     except Exception as e:
         raise PermissionError(f"Path traversal blocked: {e}")

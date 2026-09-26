@@ -1,5 +1,7 @@
 {
-    "Supervisor": "ag/gemini-3.8-flash",
+    "Supervisor": "openrouter/inclusionai/ling-3.0-flash-fin:free",
     "Developer": "openrouter/inclusionai/ling-3.0-flash-fin:free",
-    "CodeReviewer": "openrouter/nvidia/nemotron-3.5-lightning:free"
+    "CodeReviewer": "openrouter/inclusionai/ling-3.0-flash-sante:free",
+    "Researcher": "openrouter/inclusionai/ling-3.0-flash-sante:free",
+    "Executor": "openrouter/inclusionai/ling-3.0-flash-fin:free"
 }

@@ -183,6 +183,12 @@ def supervisor_node(state: AgentState, config: RunnableConfig = None) -> dict:
     custom_rules = settings_manager.get_system_instructions()
     rules_section = f"\n[USER CUSTOM INSTRUCTIONS / PLATFORM RULES]:\n{custom_rules}\n" if custom_rules else ""
 
+    # Query project workspace rules (.agents/rules, AGENTS.md, etc.)
+    from bludai.core.workspace_manager import workspace_manager
+    project_rules = state.get("project_rules") or workspace_manager.scan_project_rules()
+    if project_rules:
+        rules_section = f"{rules_section}\n\n[PROJECT WORKSPACE RULES]:\n{project_rules}\n"
+
     now_str = datetime.now().strftime("%A, %B %d, %Y %H:%M:%S")
 
     system_prompt = f"""You are the Supervisor (Orchestrator) for the BLUDAI Multi-Agent Workplace.

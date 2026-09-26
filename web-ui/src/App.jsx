@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { Send, Bot, User, Cpu, Users, Activity, Sparkles, AlertCircle, RotateCcw, X } from 'lucide-react';
+import { Send, Bot, User, Cpu, Users, Activity, Sparkles, AlertCircle, RotateCcw, X, FolderTree, FolderGit2 } from 'lucide-react';
 import Sidebar from './components/Sidebar';
+import ProjectSelector from './components/ProjectSelector';
+import WorkspaceTreeDrawer from './components/WorkspaceTreeDrawer';
 import ModelSelector from './components/ModelSelector';
 import SettingsModal from './components/SettingsModal';
 import AgentWorkplaceModal from './components/AgentWorkplaceModal';
@@ -16,6 +18,10 @@ import './index.css';
 const API_BASE = 'http://localhost:8000/api';
 
 function App() {
+  const [currentWorkspace, setCurrentWorkspace] = useState(null);
+  const [showExplorer, setShowExplorer] = useState(false);
+  const [isProjectSelectorOpen, setIsProjectSelectorOpen] = useState(false);
+  const bottomIndicatorRef = useRef(null);
   const [sessions, setSessions] = useState([]);
   const [currentThread, setCurrentThread] = useState(() => {
     return typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('thread') : null;
@@ -67,6 +73,7 @@ function App() {
 
   useEffect(() => {
     const init = async () => {
+      await fetchCurrentWorkspace();
       await fetchSettings();
       await fetchModels();
       await fetchAgents();
@@ -78,6 +85,41 @@ function App() {
     };
     init();
   }, []);
+
+  const fetchCurrentWorkspace = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/workspace`);
+      if (res.ok) {
+        const data = await res.json();
+        setCurrentWorkspace(data);
+      }
+    } catch (err) {
+      console.error("Failed to load workspace", err);
+    }
+  };
+
+  const handleWorkspaceChange = async (workspaceDataOrPath) => {
+    if (typeof workspaceDataOrPath === 'string' || (workspaceDataOrPath && !workspaceDataOrPath.name && workspaceDataOrPath.path)) {
+      const targetPath = typeof workspaceDataOrPath === 'string' ? workspaceDataOrPath : workspaceDataOrPath.path;
+      try {
+        const res = await fetch(`${API_BASE}/workspace`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path: targetPath })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setCurrentWorkspace(data);
+          fetchSessions();
+        }
+      } catch (err) {
+        console.error("Failed to switch workspace", err);
+      }
+    } else if (workspaceDataOrPath) {
+      setCurrentWorkspace(workspaceDataOrPath);
+      fetchSessions();
+    }
+  };
 
   const fetchAgents = async () => {
     try {
@@ -163,15 +205,22 @@ function App() {
     setShowWorkplace(true);
   };
 
-  const loadSession = async (threadId) => {
+  const loadSession = async (threadId, autoSwitchWorkspace = true) => {
     setCurrentThread(threadId);
     setStreamError(null);
-    
     try {
       const res = await fetch(`${API_BASE}/sessions/${threadId}/history`);
       const data = await res.json();
       const loadedMessages = data.messages || [];
       setMessages(loadedMessages);
+
+      if (autoSwitchWorkspace && data.project_path && currentWorkspace?.path) {
+        const normData = (data.project_path || '').replace(/\\/g, '/').toLowerCase().replace(/\/+$/, '');
+        const normCurrent = (currentWorkspace.path || '').replace(/\\/g, '/').toLowerCase().replace(/\/+$/, '');
+        if (normData !== normCurrent) {
+          handleWorkspaceChange({ path: data.project_path });
+        }
+      }
 
       // Restore telemetry metrics from history if available
       if (loadedMessages.length > 0) {
@@ -404,7 +453,8 @@ function App() {
           thread_id: thread_id,
           message: promptToSend,
           basic_model: selectedModel,
-          temperature: temperature
+          temperature: temperature,
+          project_path: currentWorkspace?.path
         })
       });
 
@@ -521,6 +571,19 @@ function App() {
         onSelectAgent={handleEditAgent}
         agents={agents}
         refreshSessions={fetchSessions}
+        currentWorkspace={currentWorkspace}
+        onWorkspaceChange={handleWorkspaceChange}
+      />
+
+      {/* Panel 1.5: Collapsible Workspace Tree Drawer */}
+      <WorkspaceTreeDrawer
+        isOpen={showExplorer}
+        onClose={() => setShowExplorer(false)}
+        currentWorkspace={currentWorkspace}
+        onInsertFile={(filePath) => {
+          setInputText(prev => prev ? `${prev} @${filePath}` : `@${filePath}`);
+          inputRef.current?.focus();
+        }}
       />
 
       {/* Main Workspace: Top Bar + Viewport + Ambient Status Bar */}
@@ -528,18 +591,39 @@ function App() {
         {/* Workspace Top Bar */}
         <div className="h-[52px] px-5 flex items-center justify-between border-b border-white/[0.08] bg-[#14161d] shrink-0">
           <div className="flex items-center gap-3">
-            {/* Breadcrumb-style navigation */}
-            <div className="flex items-center gap-2 text-xs">
-              <span className="text-zinc-500 font-medium hover:text-zinc-300 transition-colors cursor-default">Bludai</span>
-              <span className="text-zinc-700">/</span>
-              <span className="text-zinc-200 font-medium flex items-center gap-1.5">
-                <Cpu size={14} className="text-zinc-400" />
-                {sessions.find(s => s.thread_id === currentThread)?.title || "Multi-Agent Workspace"}
-              </span>
-            </div>
+            {/* Interactive Project Selector Dropdown */}
+            <ProjectSelector 
+              currentWorkspace={currentWorkspace} 
+              onWorkspaceChange={handleWorkspaceChange}
+              isOpen={isProjectSelectorOpen}
+              setIsOpen={setIsProjectSelectorOpen}
+              externalTriggerRef={bottomIndicatorRef}
+            />
+
+            <span className="text-zinc-700">/</span>
+
+            {/* Current Session Title */}
+            <span className="text-zinc-200 font-medium flex items-center gap-1.5 truncate max-w-[180px] sm:max-w-[240px] text-xs">
+              <Cpu size={14} className="text-zinc-400 shrink-0" />
+              <span className="truncate">{sessions.find(s => s.thread_id === currentThread)?.title || "Multi-Agent Workspace"}</span>
+            </span>
+
+            {/* Collapsible Explorer Drawer Toggle Button */}
+            <button
+              onClick={() => setShowExplorer(prev => !prev)}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border transition-all cursor-pointer ${
+                showExplorer 
+                  ? 'bg-white/10 border-white/20 text-zinc-100 shadow-sm' 
+                  : 'bg-white/[0.04] border-white/[0.08] text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.06]'
+              }`}
+              title="Toggle Workspace File Explorer"
+            >
+              <FolderTree size={14} className={showExplorer ? 'text-cyan-400' : 'text-zinc-400'} />
+              <span>Explorer</span>
+            </button>
 
             {/* Dedicated View Switcher: Stream vs Graph */}
-            <div className="flex items-center p-0.5 bg-[#0d0e12] border border-white/[0.08] rounded-lg ml-2">
+            <div className="flex items-center p-0.5 bg-[#0d0e12] border border-white/[0.08] rounded-lg ml-1">
               <button
                 onClick={() => setMainView('stream')}
                 className={`flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md transition-all cursor-pointer ${
@@ -899,6 +983,28 @@ function App() {
         {/* Tier 1: Ambient Bottom Status Bar (Compact 28px) */}
         <div className="h-[28px] px-4 flex items-center justify-between border-t border-white/[0.08] bg-[#14161d] text-[11px] font-mono text-zinc-400 select-none shrink-0 z-10">
           <div className="flex items-center gap-2.5 overflow-hidden text-ellipsis whitespace-nowrap">
+            {/* Clickable Workspace Indicator */}
+            <button
+              ref={bottomIndicatorRef}
+              onClick={() => setIsProjectSelectorOpen(prev => !prev)}
+              className="flex items-center gap-1.5 text-zinc-300 hover:text-white transition-colors cursor-pointer px-1.5 py-0.5 rounded hover:bg-white/5"
+              title={`Workspace: ${currentWorkspace?.path || 'No Workspace'} (Click to change)`}
+            >
+              <FolderGit2 size={12} className="text-cyan-400 shrink-0" />
+              <span className="truncate max-w-[130px] sm:max-w-[200px] font-semibold">
+                {currentWorkspace?.name || 'No Workspace'}
+              </span>
+              {currentWorkspace?.git_branch && (
+                <span className={`text-[9px] font-mono px-1 py-0.2 rounded border ${
+                  currentWorkspace.git_is_clean !== false
+                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                    : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                }`}>
+                  {currentWorkspace.git_branch}
+                </span>
+              )}
+            </button>
+            <span className="text-zinc-600">|</span>
             <span className="flex items-center gap-1 text-zinc-300">
               <span className="text-amber-400">⚡</span>
               <span className="truncate max-w-[140px] sm:max-w-[200px]" title={selectedModel || 'Default Model'}>

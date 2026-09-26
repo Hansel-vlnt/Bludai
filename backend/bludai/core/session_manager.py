@@ -16,20 +16,26 @@ class SessionManager:
                     thread_id TEXT PRIMARY KEY,
                     title TEXT,
                     mode TEXT,
+                    project_path TEXT,
                     updated_at TIMESTAMP
                 )
             ''')
+            try:
+                conn.execute('ALTER TABLE sessions ADD COLUMN project_path TEXT')
+            except Exception:
+                pass
             
-    def create_or_update_session(self, thread_id: str, title: str, mode: str):
+    def create_or_update_session(self, thread_id: str, title: str, mode: str, project_path: str = None):
         now = datetime.datetime.now().isoformat()
         with sqlite3.connect(self.db_path) as conn:
             conn.execute('''
-                INSERT INTO sessions (thread_id, title, mode, updated_at)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO sessions (thread_id, title, mode, project_path, updated_at)
+                VALUES (?, ?, ?, ?, ?)
                 ON CONFLICT(thread_id) DO UPDATE SET
                     mode=coalesce(excluded.mode, sessions.mode),
+                    project_path=coalesce(excluded.project_path, sessions.project_path),
                     updated_at=excluded.updated_at
-            ''', (thread_id, title, mode, now))
+            ''', (thread_id, title, mode, project_path, now))
             
     def update_timestamp(self, thread_id: str):
         now = datetime.datetime.now().isoformat()
@@ -38,25 +44,31 @@ class SessionManager:
                 UPDATE sessions SET updated_at = ? WHERE thread_id = ?
             ''', (now, thread_id))
 
-    def update_session(self, thread_id: str, mode: str = None, title: str = None):
+    def update_session(self, thread_id: str, mode: str = None, title: str = None, project_path: str = None):
         now = datetime.datetime.now().isoformat()
         with sqlite3.connect(self.db_path) as conn:
-            if mode and title:
-                conn.execute('UPDATE sessions SET mode = ?, title = ?, updated_at = ? WHERE thread_id = ?', (mode, title, now, thread_id))
-            elif mode:
-                conn.execute('UPDATE sessions SET mode = ?, updated_at = ? WHERE thread_id = ?', (mode, now, thread_id))
-            elif title:
-                conn.execute('UPDATE sessions SET title = ?, updated_at = ? WHERE thread_id = ?', (title, now, thread_id))
-            else:
-                conn.execute('UPDATE sessions SET updated_at = ? WHERE thread_id = ?', (now, thread_id))
-
+            updates = []
+            params = []
+            if mode:
+                updates.append("mode = ?")
+                params.append(mode)
+            if title:
+                updates.append("title = ?")
+                params.append(title)
+            if project_path:
+                updates.append("project_path = ?")
+                params.append(project_path)
+            updates.append("updated_at = ?")
+            params.append(now)
+            params.append(thread_id)
+            conn.execute(f"UPDATE sessions SET {', '.join(updates)} WHERE thread_id = ?", params)
             
-    def get_sessions(self, limit=20):
+    def get_sessions(self, limit=50):
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
             cur = conn.cursor()
             cur.execute('''
-                SELECT thread_id, title, mode, updated_at
+                SELECT thread_id, title, mode, project_path, updated_at
                 FROM sessions
                 ORDER BY updated_at DESC
                 LIMIT ?

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Cpu, Plus, Power, Settings, Users, MessageSquare, Bot, Code, Terminal, ShieldCheck, Search, Pencil, Trash2, Check, X } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Cpu, Plus, Power, Settings, Users, MessageSquare, Bot, Code, Terminal, ShieldCheck, Search, Pencil, Trash2, Check, X, Folder, FolderGit2 } from 'lucide-react';
 
 const ICON_MAP = {
   Code: Code,
@@ -19,12 +19,24 @@ const Sidebar = ({
   setShowWorkplace,
   onSelectAgent,
   agents: propAgents,
-  refreshSessions
+  refreshSessions,
+  currentWorkspace,
+  onWorkspaceChange
 }) => {
   const [agents, setAgents] = useState(propAgents || []);
   const [editingId, setEditingId] = useState(null);
   const [editTitle, setEditTitle] = useState('');
   const [deletingId, setDeletingId] = useState(null);
+  const [sessionScope, setSessionScope] = useState('current');
+  const [pendingSessionSwitch, setPendingSessionSwitch] = useState(null);
+  const normalizePath = (p) => (p || '').replace(/\\/g, '/').toLowerCase().replace(/\/+$/, '');
+
+  const filteredSessions = useMemo(() => {
+    if (sessionScope === 'all') return sessions;
+    if (!currentWorkspace?.path) return sessions;
+    const currentNorm = normalizePath(currentWorkspace.path);
+    return sessions.filter(s => normalizePath(s.project_path) === currentNorm);
+  }, [sessions, sessionScope, currentWorkspace?.path]);
 
   useEffect(() => {
     if (propAgents && propAgents.length > 0) {
@@ -208,20 +220,47 @@ const Sidebar = ({
       
       {/* 2. Session History List */}
       <div className="flex-1 overflow-y-auto px-3 py-3 custom-scrollbar">
+        {/* Segmented Scope Control: Current Project vs All */}
+        <div className="flex items-center p-0.5 bg-[#0d0e12] border border-white/[0.08] rounded-lg mb-2.5">
+          <button
+            onClick={() => setSessionScope('current')}
+            className={`flex-1 py-1 text-[11px] font-medium rounded-md transition-all cursor-pointer text-center truncate px-1 ${
+              sessionScope === 'current'
+                ? 'bg-[#1a1c26] text-zinc-100 shadow-sm border border-white/[0.08]'
+                : 'text-zinc-400 hover:text-zinc-200'
+            }`}
+            title={currentWorkspace?.name ? `Sessions for ${currentWorkspace.name}` : 'Sessions for current workspace'}
+          >
+            Current Project ({filteredSessions.length})
+          </button>
+          <button
+            onClick={() => setSessionScope('all')}
+            className={`flex-1 py-1 text-[11px] font-medium rounded-md transition-all cursor-pointer text-center truncate px-1 ${
+              sessionScope === 'all'
+                ? 'bg-[#1a1c26] text-zinc-100 shadow-sm border border-white/[0.08]'
+                : 'text-zinc-400 hover:text-zinc-200'
+            }`}
+          >
+            All ({sessions.length})
+          </button>
+        </div>
+
         <div className="flex items-center justify-between px-2.5 py-1.5 mb-2.5 bg-[#0d0e12]/50 border border-white/[0.08] rounded-lg">
           <div className="flex items-center gap-1.5 text-[11px] font-medium text-zinc-300 uppercase tracking-wider">
             <MessageSquare size={12} className="text-zinc-400" />
             <span>Recent Sessions</span>
           </div>
           <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-white/5 text-zinc-400 border border-white/[0.08]">
-            {sessions.length}
+            {filteredSessions.length}
           </span>
         </div>
 
-        {sessions.length === 0 ? (
-          <div className="text-[11px] text-zinc-500 text-center py-6 italic">No past sessions</div>
+        {filteredSessions.length === 0 ? (
+          <div className="text-[11px] text-zinc-500 text-center py-6 italic">
+            {sessionScope === 'current' ? 'No sessions for current project' : 'No past sessions'}
+          </div>
         ) : (
-          Object.entries(groupSessionsByDate(sessions)).map(([dateLabel, groupList]) => (
+          Object.entries(groupSessionsByDate(filteredSessions)).map(([dateLabel, groupList]) => (
             <div key={dateLabel} className="space-y-1 mb-3.5 last:mb-0">
               <div className="text-[10px] font-medium uppercase tracking-wider text-zinc-500 px-2 py-0.5 flex items-center gap-2">
                 <span>{dateLabel}</span>
@@ -241,7 +280,15 @@ const Sidebar = ({
                         : 'bg-transparent border-transparent text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-200'
                     }`}
                     onClick={() => {
-                      if (!isEditing && !isDeleting) loadSession(s.thread_id);
+                      if (!isEditing && !isDeleting) {
+                        const sessionNorm = normalizePath(s.project_path);
+                        const currentNorm = normalizePath(currentWorkspace?.path);
+                        if (s.project_path && currentWorkspace?.path && sessionNorm !== currentNorm) {
+                          setPendingSessionSwitch(s);
+                        } else {
+                          loadSession(s.thread_id, false);
+                        }
+                      }
                     }}
                   >
                     {isEditing ? (
@@ -320,6 +367,15 @@ const Sidebar = ({
                         </div>
                         <div className="text-[10px] text-zinc-400 opacity-60 mt-0.5 flex items-center justify-between">
                           <span>{formatRelativeTime(s.updated_at || s.created_at)}</span>
+                          {sessionScope === 'all' && s.project_path && (
+                            <span 
+                              className="text-[9px] font-mono text-zinc-500 truncate max-w-[90px] flex items-center gap-1"
+                              title={s.project_path}
+                            >
+                              <Folder size={9} className="shrink-0 text-zinc-600" />
+                              {s.project_path.split(/[/\\]/).filter(Boolean).pop()}
+                            </span>
+                          )}
                         </div>
                       </>
                     )}
@@ -354,6 +410,61 @@ const Sidebar = ({
           </button>
         </div>
       </div>
+
+      {/* Interactive Switch Workspace Prompt Modal */}
+      {pendingSessionSwitch && (
+        <div 
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-150"
+          onClick={() => setPendingSessionSwitch(null)}
+        >
+          <div 
+            className="w-full max-w-sm bg-[#14161d] border border-white/10 rounded-xl p-4 shadow-2xl space-y-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-2 text-amber-400 text-sm font-semibold">
+              <FolderGit2 size={16} />
+              <span>Switch Active Workspace?</span>
+            </div>
+            <p className="text-xs text-zinc-300 leading-relaxed">
+              This session was created in a different project folder:
+              <span className="block font-mono text-[11px] text-zinc-200 bg-black/40 px-2 py-1.5 rounded mt-1.5 border border-white/5 truncate">
+                {pendingSessionSwitch.project_path}
+              </span>
+            </p>
+            <div className="flex flex-col gap-2 pt-1">
+              <button
+                onClick={async () => {
+                  const targetSession = pendingSessionSwitch;
+                  setPendingSessionSwitch(null);
+                  if (onWorkspaceChange && targetSession.project_path) {
+                    await onWorkspaceChange({ path: targetSession.project_path });
+                  }
+                  loadSession(targetSession.thread_id, false);
+                }}
+                className="w-full py-2 px-3 bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 rounded-lg text-xs font-medium hover:bg-cyan-500/30 transition-colors cursor-pointer"
+              >
+                Switch Project & Open Session
+              </button>
+              <button
+                onClick={() => {
+                  const targetSession = pendingSessionSwitch;
+                  setPendingSessionSwitch(null);
+                  loadSession(targetSession.thread_id, false);
+                }}
+                className="w-full py-1.5 px-3 bg-white/[0.04] text-zinc-300 border border-white/[0.08] rounded-lg text-xs hover:bg-white/[0.08] transition-colors cursor-pointer"
+              >
+                Open in Current Project
+              </button>
+              <button
+                onClick={() => setPendingSessionSwitch(null)}
+                className="w-full py-1 text-zinc-500 text-xs hover:text-zinc-300 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

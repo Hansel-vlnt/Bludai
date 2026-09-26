@@ -1,5 +1,6 @@
 from langchain_core.tools import tool
 from bludai.core.vector_store import vector_store
+from bludai.core.workspace_manager import workspace_manager
 
 @tool
 def semantic_code_search(query: str, limit: int = 4) -> str:
@@ -26,7 +27,8 @@ def index_project_codebase(path: str = ".") -> str:
     Scans the project files and generates vector embeddings to update the semantic code search index.
     Call this when new files have been created or modified significantly.
     """
-    res = vector_store.index_codebase(path)
+    target = workspace_manager.get_active_path() if path == "." else path
+    res = vector_store.index_codebase(target)
     return f"Successfully indexed {res.get('files', 0)} files into {res.get('chunks', 0)} vector embeddings in ChromaDB."
 
 vector_tools = [semantic_code_search, index_project_codebase]

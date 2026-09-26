@@ -13,3 +13,6 @@ class AgentState(TypedDict, total=False):
     temperature: float
     # Track repeated tool errors or worker loops to prevent infinite recursion
     cycle_tracker: dict
+    project_path: str       # Absolute path to active workspace root
+    project_name: str       # Folder name of project
+    project_rules: str      # Concatenated <user_rules> string

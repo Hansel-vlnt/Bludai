@@ -8,6 +8,53 @@ from bludai.core.telemetry import emit_semantic_event
 
 from langchain_core.runnables.config import RunnableConfig
 
+import re
+import json
+import time
+
+def extract_fallback_tool_calls(content_str: str) -> list:
+    """Extracts tool calls emitted as XML blocks or raw JSON by open-source LLMs."""
+    tool_calls = []
+    # 1. XML style: <tool_call>name\n<arg_key>k</arg_key>\n<arg_value>v</arg_value>...</tool_call>
+    xml_matches = re.finditer(r'<tool_call>\s*([a-zA-Z0-9_]+)\s*([\s\S]*?)</tool_call>', content_str)
+    for idx, match in enumerate(xml_matches):
+        tool_name = match.group(1).strip()
+        body = match.group(2)
+        args = {}
+        try:
+            parsed_json = json.loads(body.strip())
+            if isinstance(parsed_json, dict):
+                args = parsed_json
+        except Exception:
+            kv_matches = re.findall(r'<arg_key>\s*(.*?)\s*</arg_key>\s*<arg_value>\s*([\s\S]*?)\s*</arg_value>', body)
+            if kv_matches:
+                for k, v in kv_matches:
+                    args[k.strip()] = v.strip()
+        tool_calls.append({
+            "name": tool_name,
+            "args": args,
+            "id": f"call_{idx}_{int(time.time())}",
+            "type": "tool_call"
+        })
+
+    # 2. JSON style: {"name": "...", "arguments": {...}}
+    if not tool_calls:
+        json_matches = re.finditer(r'\{\s*"name"\s*:\s*"([a-zA-Z0-9_]+)"\s*,\s*"arguments"\s*:\s*(\{[\s\S]*?\})\s*\}', content_str)
+        for idx, match in enumerate(json_matches):
+            tool_name = match.group(1).strip()
+            try:
+                args = json.loads(match.group(2).strip())
+                tool_calls.append({
+                    "name": tool_name,
+                    "args": args,
+                    "id": f"call_json_{idx}_{int(time.time())}",
+                    "type": "tool_call"
+                })
+            except Exception:
+                pass
+
+    return tool_calls
+
 def make_worker_node(agent_id: str) -> Callable[[AgentState], dict]:
     """
     Factory creating an autonomous LangGraph worker node for any dynamic agent.
@@ -71,24 +118,13 @@ def make_worker_node(agent_id: str) -> Callable[[AgentState], dict]:
 
         response = llm_with_tools.invoke(messages)
         
-        # Self-correction loop for free/open-source models
-        import re
-        retries = 2
-        while retries > 0:
+        # Intelligent fallback tool call extraction for open-source / free models
+        if not getattr(response, "tool_calls", None):
             content_str = str(getattr(response, "content", ""))
-            is_malformed = not getattr(response, "tool_calls", None) and (
-                "<tool_call>" in content_str or 
-                re.search(r'^\s*\{\s*"name"\s*:\s*".*?",\s*"arguments"\s*:', content_str, re.MULTILINE) is not None
-            )
-            if is_malformed:
-                messages.extend([
-                    response,
-                    HumanMessage(content="Error: Invalid tool call format. You must use the strict JSON function calling format defined by the API, not raw text or XML. Please try again.")
-                ])
-                response = llm_with_tools.invoke(messages)
-                retries -= 1
-            else:
-                break
+            if "<tool_call>" in content_str or '"arguments"' in content_str:
+                extracted = extract_fallback_tool_calls(content_str)
+                if extracted:
+                    response.tool_calls = extracted
 
         if hasattr(response, "additional_kwargs"):
             response.additional_kwargs["agent"] = agent_name

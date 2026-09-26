@@ -185,7 +185,7 @@ class SettingsManager:
         payload = json.dumps({
             "model": model,
             "messages": [{"role": "user", "content": "ping"}],
-            "max_tokens": 5
+            "max_tokens": 100
         }).encode('utf-8')
 
         req = urllib.request.Request(target_url, data=payload, method="POST")
@@ -199,18 +199,40 @@ class SettingsManager:
                 latency_ms = int((time.time() - start_time) * 1000)
                 if response.status == 200:
                     raw_body = response.read().decode("utf-8")
+                    clean_body = raw_body.replace("data: [DONE]", "").strip()
                     try:
-                        data = json.loads(raw_body)
-                        answer = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                        data = json.loads(clean_body)
+                        msg = data.get("choices", [{}])[0].get("message", {})
+                        answer = msg.get("content") or msg.get("reasoning") or ""
                     except json.JSONDecodeError:
                         import re
-                        matches = re.findall(r'"content"\s*:\s*"([^"]*)"', raw_body)
-                        answer = "".join(matches).replace("\\n", "\n") if matches else "Raw: " + raw_body[:50]
+                        matches = re.findall(r'"(?:content|reasoning)"\s*:\s*"([^"]*)"', clean_body)
+                        if matches:
+                            answer = "".join(matches).replace("\\n", "\n")
+                        else:
+                            lines_answers = []
+                            for line in clean_body.splitlines():
+                                line_str = line.strip()
+                                if line_str.startswith("data:"):
+                                    line_str = line_str[5:].strip()
+                                if line_str and line_str != "[DONE]":
+                                    try:
+                                        chunk = json.loads(line_str)
+                                        delta = (
+                                            chunk.get("choices", [{}])[0].get("delta", {}).get("content") or
+                                            chunk.get("choices", [{}])[0].get("delta", {}).get("reasoning") or
+                                            chunk.get("choices", [{}])[0].get("message", {}).get("content")
+                                        )
+                                        if delta:
+                                            lines_answers.append(delta)
+                                    except Exception:
+                                        pass
+                            answer = "".join(lines_answers) if lines_answers else ("Raw: " + clean_body[:50])
                         
                     return {
                         "status": "success",
                         "latency_ms": latency_ms,
-                        "message": f"Inference OK! ({latency_ms}ms) Response: {answer.strip()}"
+                        "message": f"Inference OK! ({latency_ms}ms) Response: {str(answer).strip()}"
                     }
                 else:
                     return {

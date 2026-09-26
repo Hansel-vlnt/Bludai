@@ -36,6 +36,7 @@ from bludai.core.models_manager import models_manager
 from bludai.core.agent_manager import agent_manager
 from bludai.tools.registry import list_available_tools
 from bludai.core.graph import recompile_graph
+from bludai.core.workspace_manager import workspace_manager
 
 class ChatRequest(BaseModel):
     thread_id: str
@@ -43,6 +44,7 @@ class ChatRequest(BaseModel):
     mode: str = "role"
     basic_model: Optional[str] = None
     temperature: Optional[float] = None
+    project_path: Optional[str] = None
 
 def extract_or_estimate_tokens(messages, start_idx=0, prompt_text="", reply_text=""):
     input_tokens = 0
@@ -190,6 +192,57 @@ def clear_session(thread_id: str):
     # Not fully deleting from sqlite here but a simple wrapper
     return {"status": "ok"}
 
+class WorkspaceSetRequest(BaseModel):
+    path: str
+
+class WorkspaceDeleteRequest(BaseModel):
+    path: Optional[str] = None
+
+@app.get("/api/workspace")
+def get_current_workspace():
+    return workspace_manager.get_active_workspace()
+
+@app.post("/api/workspace")
+def set_current_workspace(req: WorkspaceSetRequest):
+    try:
+        return workspace_manager.set_active_workspace(req.path)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/workspace/browse-native")
+def browse_native_workspace():
+    chosen = workspace_manager.open_native_dialog()
+    if chosen:
+        return workspace_manager.set_active_workspace(chosen)
+    active = workspace_manager.get_active_workspace()
+    return {"cancelled": True, **active}
+
+@app.get("/api/workspace/browse-dirs")
+def browse_dirs(path: Optional[str] = None):
+    return workspace_manager.browse_local_directories(path)
+
+@app.get("/api/workspace/recent")
+def get_recent_workspaces():
+    return workspace_manager.get_recent_workspaces()
+
+@app.delete("/api/workspace/recent")
+def delete_recent_workspace(path: Optional[str] = None, req: Optional[WorkspaceDeleteRequest] = None):
+    target = path or (req.path if req else None)
+    if not target:
+        raise HTTPException(status_code=400, detail="Missing workspace path to remove")
+    return workspace_manager.remove_recent_workspace(target)
+
+@app.get("/api/workspace/tree")
+def get_workspace_tree(subpath: str = ""):
+    return workspace_manager.get_directory_tree(subpath=subpath)
+
+@app.get("/api/workspace/file")
+def get_workspace_file(path: str):
+    try:
+        return workspace_manager.read_file_content(path)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 @app.post("/api/shutdown")
 def shutdown():
     import os
@@ -321,9 +374,10 @@ def get_session_history(thread_id: str):
     session = session_manager.get_session(thread_id)
     session_mode = session.get("mode", "role") if session else "role"
     session_title = session.get("title", "") if session else ""
+    session_project_path = session.get("project_path") if session else None
 
     if not state:
-        return {"messages": [], "mode": session_mode, "title": session_title}
+        return {"messages": [], "mode": session_mode, "title": session_title, "project_path": session_project_path}
         
     messages = state["channel_values"].get("messages", [])
     
@@ -345,24 +399,30 @@ def get_session_history(thread_id: str):
             # Optionally include tool messages for UI transparency
             formatted_msgs.append({"role": "system", "content": f"🔧 Tool Executed: {msg.name}\n{msg.content}"})
             
-    return {"messages": formatted_msgs, "mode": session_mode, "title": session_title}
+    return {"messages": formatted_msgs, "mode": session_mode, "title": session_title, "project_path": session_project_path}
 
 @app.post("/api/chat")
 def chat(req: ChatRequest):
     import time
     start_time = time.time()
 
+    active_path = req.project_path or workspace_manager.get_active_path()
+    workspace_manager.active_workspace_ctx.set(active_path)
+
     # Auto-save session
     existing = session_manager.get_session(req.thread_id)
     if not existing:
         title = req.message[:30] + ("..." if len(req.message) > 30 else "")
-        session_manager.create_or_update_session(req.thread_id, title, "role")
+        session_manager.create_or_update_session(req.thread_id, title, "role", project_path=active_path)
     else:
-        session_manager.update_session(req.thread_id, mode="role")
+        session_manager.update_session(req.thread_id, mode="role", project_path=active_path)
 
     inputs = {
         "messages": [HumanMessage(content=req.message)],
-        "temperature": req.temperature
+        "temperature": req.temperature,
+        "project_path": active_path,
+        "project_name": os.path.basename(active_path) or active_path,
+        "project_rules": workspace_manager.scan_project_rules(active_path)
     }
     config = {"configurable": {"thread_id": req.thread_id}}
 
@@ -456,17 +516,23 @@ def chat(req: ChatRequest):
 async def chat_stream(req: ChatRequest):
     start_time = time.time()
 
+    active_path = req.project_path or workspace_manager.get_active_path()
+    workspace_manager.active_workspace_ctx.set(active_path)
+
     # Auto-save session
     existing = session_manager.get_session(req.thread_id)
     if not existing:
         title = req.message[:30] + ("..." if len(req.message) > 30 else "")
-        session_manager.create_or_update_session(req.thread_id, title, "role")
+        session_manager.create_or_update_session(req.thread_id, title, "role", project_path=active_path)
     else:
-        session_manager.update_session(req.thread_id, mode="role")
+        session_manager.update_session(req.thread_id, mode="role", project_path=active_path)
 
     inputs = {
         "messages": [HumanMessage(content=req.message)],
-        "temperature": req.temperature
+        "temperature": req.temperature,
+        "project_path": active_path,
+        "project_name": os.path.basename(active_path) or active_path,
+        "project_rules": workspace_manager.scan_project_rules(active_path)
     }
     config = {"configurable": {"thread_id": req.thread_id}}
 
