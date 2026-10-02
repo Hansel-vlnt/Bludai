@@ -98,4 +98,7 @@ graphify-out/
 docs/screenshots/
 screenshots/
 
+# --- Test Workspaces & Generation Folders ---
+test-*/
+
 

@@ -7,6 +7,8 @@ class AgentState(TypedDict, total=False):
     messages: Annotated[list, add_messages]
     # The active checklist/plan managed by the Supervisor
     checklist: str
+    # The overall progress of the checklist
+    progress: int
     # The next node to execute ("Developer", "Executor", or "FINISH")
     next: str
     # The temperature for model generation (0.0 to 1.0)

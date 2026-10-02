@@ -424,7 +424,7 @@ def chat(req: ChatRequest):
         "project_name": os.path.basename(active_path) or active_path,
         "project_rules": workspace_manager.scan_project_rules(active_path)
     }
-    config = {"configurable": {"thread_id": req.thread_id}}
+    config = {"configurable": {"thread_id": req.thread_id}, "recursion_limit": 150}
 
     checkpointer = get_checkpointer()
     state = checkpointer.get(config)
@@ -534,7 +534,7 @@ async def chat_stream(req: ChatRequest):
         "project_name": os.path.basename(active_path) or active_path,
         "project_rules": workspace_manager.scan_project_rules(active_path)
     }
-    config = {"configurable": {"thread_id": req.thread_id}}
+    config = {"configurable": {"thread_id": req.thread_id}, "recursion_limit": 150}
 
     checkpointer = get_checkpointer()
     state = checkpointer.get(config)
@@ -601,6 +601,9 @@ async def chat_stream(req: ChatRequest):
                         
                     next_target = node_out.get("next")
                     messages = node_out.get("messages", [])
+                    
+                    if "progress" in node_out:
+                        yield f"data: {json.dumps({'type': 'progress', 'progress': node_out['progress']})}\n\n"
                         
                     for m in messages:
                         if isinstance(m, AIMessage):
@@ -622,6 +625,7 @@ async def chat_stream(req: ChatRequest):
                                     worker_id = last_worker_agent or node_name
                                     yield f"data: {json.dumps({'type': 'tool', 'name': t_name, 'status': 'running...', 'agent': worker_id})}\n\n"
                                     yield f"data: {json.dumps({'type': 'active_agent', 'agent': worker_id})}\n\n"
+                                    yield f"data: {json.dumps({'event': 'packet_transfer', 'from': worker_id, 'to': 'tools', 'type': 'tool_call', 'tool_name': t_name})}\n\n"
                             elif next_target == "FINISH" and content_str:
                                 final_reply = content_str
                                 yield f"data: {json.dumps({'type': 'content', 'delta': content_str})}\n\n"
@@ -633,12 +637,21 @@ async def chat_stream(req: ChatRequest):
                             yield f"data: {json.dumps({'type': 'tool', 'name': tool_name, 'status': 'done', 'content': tool_output, 'agent': worker_id})}\n\n"
                             collected_thoughts.append(f"🔧 **Tool executed ({tool_name})**:\n```\n{tool_output}\n```")
                         
-                    if next_target and next_target != "FINISH":
+                    if next_target and next_target not in ("FINISH", "tools"):
                         yield f"data: {json.dumps({'type': 'status', 'text': f'⚡ Delegating to {next_target}...', 'agent': node_name})}\n\n"
-                        from_agent = last_worker_agent if (last_worker_agent and last_worker_agent != next_target) else node_name
+                        from_agent = "orchestrator" if node_name == "Supervisor" else (last_worker_agent if (last_worker_agent and last_worker_agent != next_target) else node_name)
                         yield f"data: {json.dumps({'type': 'delegation', 'from': from_agent, 'to': next_target})}\n\n"
+                        
+                        summary = "Delegating task"
+                        if messages and hasattr(messages[-1], "content") and messages[-1].content:
+                            summary = str(messages[-1].content)[:100] + "..."
+                        yield f"data: {json.dumps({'event': 'packet_transfer', 'from': from_agent, 'to': next_target, 'type': 'delegation', 'payload_summary': summary})}\n\n"
+                        
                         yield f"data: {json.dumps({'type': 'active_agent', 'agent': next_target, 'progress': 30})}\n\n"
                         last_worker_agent = next_target
+
+                    if node_name not in ("Supervisor", "tools") and next_target != "tools":
+                        yield f"data: {json.dumps({'event': 'node_status', 'node': node_name, 'status': 'done', 'percentage': 100})}\n\n"
                 
             duration = round(time.time() - start_time, 2)
             thinking_trace = "\n\n---\n\n".join(collected_thoughts) if collected_thoughts else (
@@ -734,6 +747,9 @@ async def chat_resume(req: ResumeRequest):
 
                     next_target = node_out.get("next")
                     messages = node_out.get("messages", [])
+                    
+                    if "progress" in node_out:
+                        yield f"data: {json.dumps({'type': 'progress', 'progress': node_out['progress']})}\n\n"
 
                     for m in messages:
                         if isinstance(m, AIMessage):
@@ -755,6 +771,7 @@ async def chat_resume(req: ResumeRequest):
                                     worker_id = last_worker_agent or node_name
                                     yield f"data: {json.dumps({'type': 'tool', 'name': t_name, 'status': 'running...', 'agent': worker_id})}\n\n"
                                     yield f"data: {json.dumps({'type': 'active_agent', 'agent': worker_id})}\n\n"
+                                    yield f"data: {json.dumps({'event': 'packet_transfer', 'from': worker_id, 'to': 'tools', 'type': 'tool_call', 'tool_name': t_name})}\n\n"
                             elif next_target == "FINISH" and content_str:
                                 final_reply = content_str
                                 yield f"data: {json.dumps({'type': 'content', 'delta': content_str})}\n\n"
@@ -766,12 +783,21 @@ async def chat_resume(req: ResumeRequest):
                             yield f"data: {json.dumps({'type': 'tool', 'name': tool_name, 'status': 'done', 'content': tool_output, 'agent': worker_id})}\n\n"
                             collected_thoughts.append(f"🔧 **Tool executed ({tool_name})**:\n```\n{tool_output}\n```")
 
-                    if next_target and next_target != "FINISH":
+                    if next_target and next_target not in ("FINISH", "tools"):
                         yield f"data: {json.dumps({'type': 'status', 'text': f'⚡ Delegating to {next_target}...', 'agent': node_name})}\n\n"
-                        from_agent = last_worker_agent if (last_worker_agent and last_worker_agent != next_target) else node_name
+                        from_agent = "orchestrator" if node_name == "Supervisor" else (last_worker_agent if (last_worker_agent and last_worker_agent != next_target) else node_name)
                         yield f"data: {json.dumps({'type': 'delegation', 'from': from_agent, 'to': next_target})}\n\n"
+                        
+                        summary = "Delegating task"
+                        if messages and hasattr(messages[-1], "content") and messages[-1].content:
+                            summary = str(messages[-1].content)[:100] + "..."
+                        yield f"data: {json.dumps({'event': 'packet_transfer', 'from': from_agent, 'to': next_target, 'type': 'delegation', 'payload_summary': summary})}\n\n"
+                        
                         yield f"data: {json.dumps({'type': 'active_agent', 'agent': next_target, 'progress': 30})}\n\n"
                         last_worker_agent = next_target
+
+                    if node_name not in ("Supervisor", "tools") and next_target != "tools":
+                        yield f"data: {json.dumps({'event': 'node_status', 'node': node_name, 'status': 'done', 'percentage': 100})}\n\n"
 
             duration = round(time.time() - start_time, 2)
             thinking_trace = "\n\n---\n\n".join(collected_thoughts) if collected_thoughts else None

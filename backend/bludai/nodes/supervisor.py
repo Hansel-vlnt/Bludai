@@ -1,5 +1,6 @@
 import json
 import re
+import os
 from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, Field, ConfigDict
@@ -7,6 +8,7 @@ from langchain_core.messages import SystemMessage, AIMessage, HumanMessage
 from bludai.core.llm_client import get_llm_client
 from bludai.core.skills_manager import skills_manager
 from bludai.core.settings_manager import settings_manager
+from bludai.core.workspace_manager import workspace_manager
 from bludai.core.state import AgentState
 from bludai.core.memory import get_store
 from bludai.core.telemetry import emit_semantic_event
@@ -122,9 +124,17 @@ def parse_supervisor_response(
     except Exception:
         pass
         
-    # Safe fallback: plain text answer treated as direct response to user
+    # Intelligent fallback: check if raw text mentions an enabled agent
+    fallback_node = "FINISH"
+    if enabled_agents:
+        for a in enabled_agents:
+            a_name = a.get("name", "")
+            if a_name and a_name.lower() in cleaned_no_think.lower():
+                fallback_node = a_name
+                break
+
     return SupervisorResponse(
-        next_node="FINISH",
+        next_node=fallback_node,
         updated_checklist="",
         instruction=cleaned_no_think or cleaned,
         thought=extracted_thought or default_thought
@@ -209,6 +219,10 @@ Operational Guidelines:
    - Choose 'FINISH' when all tasks are complete or when you can answer the user directly.
 5. Web Research: When the user asks for live internet news, recent releases, current benchmarks, external documentation, or real-time web information, delegate directly to 'Researcher' (who has 'web_search'). NEVER instruct Executor to run terminal commands for dates or internet searches.
 6. Terminal Commands: Only delegate to 'Executor' for actual codebase commands, running tests, compiling, or installing packages. Never use Executor to find the current date or time (use the system context above).
+7. Full Autonomous Multi-Agent Execution: When coordinating a multi-step task (such as building a complete website, refactoring, or running multiple steps):
+   - You MUST NOT stop or choose 'FINISH' after a single specialist reports back if other planned steps or files remain pending!
+   - Continue the execution loop in an unbroken chain (e.g. SiteArchitect -> StylistEngineer -> ScriptMaster) until every planned file is generated.
+   - ONLY choose 'FINISH' when the full solution is completely built and ready for the user.
 
 RESPONSE FORMAT:
 You MUST respond with a JSON object conforming to this schema:
@@ -284,6 +298,103 @@ You MUST respond with a JSON object conforming to this schema:
     updated_checklist = response.updated_checklist
     instruction = response.instruction
     
+    progress = 0
+    active_checklist = updated_checklist or state.get("checklist", "")
+
+    # Extract user's initial prompt to know what project files or specialists were requested
+    initial_user_msg = ""
+    for m in state.get("messages", []):
+        if isinstance(m, HumanMessage) and not str(m.content).startswith("[Supervisor Instruction"):
+            initial_user_msg = str(m.content)
+            break
+
+    proj_path = state.get("project_path") or workspace_manager.get_active_path()
+
+    # Track checklist counts if checklist exists
+    completed_count = 0
+    pending_count = 0
+    if active_checklist:
+        completed_count = len(re.findall(r'\[\s*[xX]\s*\]', active_checklist))
+        pending_count = len(re.findall(r'\[\s*\]', active_checklist))
+        total_count = completed_count + pending_count
+        progress = int((completed_count / total_count) * 100) if total_count > 0 else 0
+
+    # Automatic Multi-Agent Autonomous Progression Guardrail
+    if next_node == "FINISH" and enabled_agents:
+        # Check files on disk
+        html_exists = bool(proj_path and os.path.exists(os.path.join(proj_path, "index.html")) and os.path.getsize(os.path.join(proj_path, "index.html")) > 20)
+        css_exists = bool(proj_path and os.path.exists(os.path.join(proj_path, "styles.css")) and os.path.getsize(os.path.join(proj_path, "styles.css")) > 20)
+        js_exists = bool(proj_path and os.path.exists(os.path.join(proj_path, "app.js")) and os.path.getsize(os.path.join(proj_path, "app.js")) > 20)
+
+        low_prompt = initial_user_msg.lower() if initial_user_msg else ""
+        html_requested = any(k in low_prompt for k in ["html", "index.html", "sitearchitect", "landing", "website"])
+        css_requested = any(k in low_prompt for k in ["css", "styles.css", "stylist", "style"])
+        js_requested = any(k in low_prompt for k in ["js", "app.js", "scriptmaster", "javascript", "interact", "chart", "calculator"])
+
+        all_requested_built = True
+        if html_requested and not html_exists:
+            all_requested_built = False
+        if css_requested and not css_exists:
+            all_requested_built = False
+        if js_requested and not js_exists:
+            all_requested_built = False
+
+        if all_requested_built and (html_exists or css_exists or js_exists):
+            # All deliverables exist! Ensure checklist is marked complete and allow clean FINISH
+            if active_checklist:
+                active_checklist = re.sub(r'\[\s*\]', '[x]', active_checklist)
+                updated_checklist = active_checklist
+            progress = 100
+            next_node = "FINISH"
+        else:
+            # Missing key deliverables requested in user prompt
+            def find_agent(*keywords):
+                for a in enabled_agents:
+                    a_name = a.get("name", "")
+                    if a_name and any(k.lower() in a_name.lower() for k in keywords):
+                        return a_name
+                return None
+
+            if html_requested and not html_exists:
+                target_agent = find_agent("sitearchitect", "developer")
+                if target_agent:
+                    next_node = target_agent
+                    instruction = "Autonomous pipeline progression: Please draft the semantic index.html skeleton for the project."
+            elif css_requested and not css_exists:
+                target_agent = find_agent("stylistengineer", "developer")
+                if target_agent:
+                    next_node = target_agent
+                    instruction = "Autonomous pipeline progression: index.html is generated. Please create the matching responsive styles.css stylesheet with modern aesthetics and dark/light themes."
+            elif js_requested and not js_exists:
+                target_agent = find_agent("scriptmaster", "developer")
+                if target_agent:
+                    next_node = target_agent
+                    instruction = "Autonomous pipeline progression: index.html and styles.css are ready. Please create the interactive app.js file with event listeners, dynamic components, and calculators."
+            elif pending_count > 0:
+                # Pending checklist items exist
+                pending_items = re.findall(r'\[\s*\]\s*([^\n\r]+)', active_checklist)
+                if pending_items:
+                    next_task = pending_items[0].strip()
+                    matched_agent = None
+                    for a in enabled_agents:
+                        a_name = a.get("name", "")
+                        if a_name and a_name.lower() in next_task.lower():
+                            matched_agent = a_name
+                            break
+                    if not matched_agent:
+                        low_task = next_task.lower()
+                        for a in enabled_agents:
+                            a_name = a.get("name", "")
+                            if ("css" in low_task or "style" in low_task) and ("stylist" in a_name.lower() or "dev" in a_name.lower()):
+                                matched_agent = a_name
+                                break
+                            elif ("js" in low_task or "script" in low_task or "interact" in low_task) and ("script" in a_name.lower() or "dev" in a_name.lower()):
+                                matched_agent = a_name
+                                break
+                    if matched_agent:
+                        next_node = matched_agent
+                        instruction = f"Autonomous workplace handoff: Previous task is complete. Proceed with pending task: {next_task}"
+    
     # If next node is FINISH, add the final answer to the conversation state as an AIMessage
     new_messages = []
     if response.thought and response.thought.strip():
@@ -309,5 +420,6 @@ You MUST respond with a JSON object conforming to this schema:
     return {
         "messages": new_messages,
         "checklist": updated_checklist,
-        "next": next_node
+        "next": next_node,
+        "progress": progress
     }

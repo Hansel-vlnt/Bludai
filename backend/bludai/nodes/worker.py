@@ -85,13 +85,22 @@ def make_worker_node(agent_id: str) -> Callable[[AgentState], dict]:
         else:
             llm = get_llm_client(role=agent_name, temperature=agent_temp)
 
-        # Check recent tool executions to prevent runaway loops (safety limit: 6 tool executions per turn)
-        recent_tool_count = sum(1 for m in state.get("messages", [])[-12:] if isinstance(m, ToolMessage))
-        if recent_tool_count >= 6:
-            llm_with_tools = llm
-        else:
-            # Bind tools to LLM if any are permitted
-            llm_with_tools = llm.bind_tools(bound_tools) if bound_tools else llm
+        # Inspect recent tool executions in conversation history to prevent runaway loops
+        recent_tool_messages = [m for m in state.get("messages", [])[-12:] if isinstance(m, ToolMessage)]
+        recent_tool_count = len(recent_tool_messages)
+        read_tool_count = sum(1 for m in recent_tool_messages if getattr(m, "name", "") in ("read_file", "semantic_code_search", "list_dir"))
+
+        effective_tools = list(bound_tools)
+        # If the agent has already executed read operations, strip read tools and force create_file
+        if read_tool_count >= 1 and any(t.name == "create_file" for t in bound_tools):
+            effective_tools = [t for t in bound_tools if t.name in ("create_file", "replace_content")]
+            system_prompt += "\n\nCRITICAL DIRECTIVE: You have already inspected the workspace context. Do NOT call read_file or search tools again. You MUST now call `create_file` to write the required file (e.g. styles.css or app.js) immediately."
+        elif recent_tool_count >= 6:
+            # If high tool count, ensure create_file is still available so worker does not get stuck in pure chat
+            effective_tools = [t for t in bound_tools if t.name == "create_file"]
+            system_prompt += "\n\nCRITICAL DIRECTIVE: Tool limit reached. You MUST now call `create_file` to save your deliverable immediately."
+
+        llm_with_tools = llm.bind_tools(effective_tools) if effective_tools else llm
 
         # Build message history for worker turn
         # CRITICAL PROMPT INJECTION FOR FREE MODELS
@@ -178,8 +187,30 @@ def execute_tools_node(state: AgentState, config: RunnableConfig = None) -> dict
 
         tool_to_run = next((t for t in bound_tools if t.name == t_name), None)
         if tool_to_run:
+            if t_name == "run_terminal_command":
+                cmd = t_args.get("command", "")
+                if any(cmd.startswith(x) or f" {x}" in cmd for x in ["rm ", "rmdir ", "kill ", "git push --force"]):
+                    from langgraph.types import interrupt
+                    approval_payload = {
+                        "type": "permission_required",
+                        "agent": agent_name,
+                        "target": "Terminal",
+                        "scope": "destructive terminal command",
+                        "command": cmd,
+                        "options": ["Approve Once", "Always Allow", "Deny"]
+                    }
+                    user_choice = interrupt(approval_payload)
+                    choice = getattr(user_choice, "get", lambda x: None)("action") if isinstance(user_choice, dict) else user_choice
+                    if choice == "reject" or choice == "Deny":
+                        t_output = "Permission Denied by User."
+                        tool_msg = ToolMessage(content=str(t_output), name=t_name, tool_call_id=t_id)
+                        tool_messages.append(tool_msg)
+                        continue
+                        
             try:
                 t_output = tool_to_run.invoke(t_args)
+                if t_name == "read_file" and isinstance(t_output, str) and len(t_output) > 12000:
+                    t_output = t_output[:6000] + f"\n\n... [Content truncated for LLM context: {len(t_output)} characters total. Showing head and tail] ...\n\n" + t_output[-4000:]
             except Exception as e:
                 t_output = f"Error executing tool {t_name}: {e}"
         else:

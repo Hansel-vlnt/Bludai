@@ -16,6 +16,30 @@ def make_worker_router(agent_name: str):
             last = messages[-1]
             if getattr(last, "tool_calls", None):
                 return "tools"
+            
+            # Check for direct agent-to-agent delegation
+            content = str(getattr(last, "content", ""))
+            from bludai.core.agent_manager import agent_manager
+            enabled_agents = agent_manager.get_enabled_agents()
+            for a in enabled_agents:
+                target_name = a.get("name")
+                if target_name and target_name != "Supervisor" and target_name != agent_name:
+                    if f"@{target_name}" in content or f"Delegate to {target_name}" in content:
+                        from langgraph.types import interrupt
+                        approval_payload = {
+                            "type": "permission_required",
+                            "agent": agent_name,
+                            "target": target_name,
+                            "scope": "direct agent channel • cross-agent coordination",
+                            "command": None,
+                            "options": ["Approve Once", "Always Allow", "Deny"]
+                        }
+                        user_choice = interrupt(approval_payload)
+                        choice = getattr(user_choice, "get", lambda x: None)("action") if isinstance(user_choice, dict) else user_choice
+                        if choice == "reject" or choice == "Deny":
+                            return "Supervisor"
+                        return target_name
+                        
         return "Supervisor"
     return worker_router
 
@@ -41,6 +65,12 @@ def build_graph():
     route_targets: Dict[str, str] = {"FINISH": END}
     tools_route_targets: Dict[str, str] = {"Supervisor": "Supervisor"}
     
+    worker_router_targets = {"tools": "tools", "Supervisor": "Supervisor"}
+    for a in enabled_agents:
+        a_name = a.get("name")
+        if a_name and a_name != "Supervisor":
+            worker_router_targets[a_name] = a_name
+    
     for agent in enabled_agents:
         agent_name = agent.get("name")
         if not agent_name or agent_name == "Supervisor":
@@ -50,11 +80,11 @@ def build_graph():
         # Add dynamic worker node for this specialist
         workflow.add_node(agent_name, make_worker_node(agent_id))
         
-        # Specialist routes to tools if tool_calls requested, otherwise back to Supervisor
+        # Specialist routes to tools if tool_calls requested, otherwise back to Supervisor or other agent
         workflow.add_conditional_edges(
             agent_name,
             make_worker_router(agent_name),
-            {"tools": "tools", "Supervisor": "Supervisor"}
+            worker_router_targets
         )
         
         route_targets[agent_name] = agent_name
