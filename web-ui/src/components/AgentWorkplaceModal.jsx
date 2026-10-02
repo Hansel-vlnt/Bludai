@@ -494,7 +494,7 @@ function AgentEditorForm({ initialData, availableTools, models, onSave, onCancel
           <p className="text-xs text-zinc-400 mb-3.5">
             Whitelisted tools permitted for this specialist.
           </p>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {allTools.map(t => {
               const isChecked = (formData.tools || []).includes(t.id);
               return (
@@ -507,10 +507,10 @@ function AgentEditorForm({ initialData, availableTools, models, onSave, onCancel
                       : 'border-white/[0.05] bg-transparent hover:bg-white/[0.02]'
                   }`}
                 >
-                  <div className="flex-1 text-left w-full pr-2.5">
-                    <div className="flex justify-between items-start mb-1">
-                      <span className="text-xs font-medium text-zinc-200">{t.name}</span>
-                      <span className="text-[9px] px-2 py-0.5 rounded font-mono uppercase tracking-wider border border-white/[0.08] text-zinc-400 bg-white/5">
+                  <div className="flex-1 text-left min-w-0 pr-3">
+                    <div className="flex items-center flex-wrap gap-1.5 mb-1.5">
+                      <span className="text-xs font-semibold text-zinc-200">{t.name}</span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded font-mono uppercase tracking-wide border border-white/[0.08] text-zinc-400 bg-white/5 shrink-0">
                         {t.category}
                       </span>
                     </div>

@@ -17,7 +17,13 @@ const TelemetryPanel = ({
   if (!isOpen) return null;
 
   return (
-    <div className="w-[340px] h-full bg-[#14161d] border-l border-white/[0.08] flex flex-col shrink-0 overflow-hidden select-none z-20">
+    <>
+      {/* Mobile/Tablet Backdrop when in overlay mode (<xl) */}
+      <div 
+        className="absolute inset-0 bg-black/50 backdrop-blur-xs z-30 xl:hidden animate-in fade-in duration-150"
+        onClick={onClose}
+      />
+      <div className="absolute inset-y-0 right-0 z-40 w-[340px] max-w-[85vw] xl:relative xl:inset-auto xl:z-20 h-full bg-[#14161d] border-l border-white/[0.08] flex flex-col shrink-0 overflow-hidden select-none shadow-2xl xl:shadow-none animate-in slide-in-from-right duration-200">
       {/* Panel Header */}
       <div className="h-[52px] px-4 flex items-center justify-between border-b border-white/[0.08] bg-[#14161d] shrink-0">
         <div className="flex items-center gap-2">
@@ -154,6 +160,7 @@ const TelemetryPanel = ({
         </div>
       </div>
     </div>
+    </>
   );
 };
 

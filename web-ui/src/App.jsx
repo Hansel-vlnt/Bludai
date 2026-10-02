@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { Send, Bot, User, Cpu, Users, Activity, Sparkles, AlertCircle, RotateCcw, X, FolderTree, FolderGit2 } from 'lucide-react';
+import { Send, Bot, User, Cpu, Users, Activity, Sparkles, AlertCircle, RotateCcw, X, FolderTree, FolderGit2, Menu } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import ProjectSelector from './components/ProjectSelector';
 import WorkspaceTreeDrawer from './components/WorkspaceTreeDrawer';
@@ -32,10 +32,14 @@ function App() {
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [liveStatus, setLiveStatus] = useState('');
   const [liveThoughts, setLiveThoughts] = useState([]);
   const [liveTools, setLiveTools] = useState([]);
+  const [activeAgentId, setActiveAgentId] = useState(null);
+  const [activeAgentProgress, setActiveAgentProgress] = useState(null);
+  const [peerDelegation, setPeerDelegation] = useState(null);
   const [pendingInterrupt, setPendingInterrupt] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showWorkplace, setShowWorkplace] = useState(() => {
@@ -247,6 +251,9 @@ function App() {
     setMessages([]);
     setLiveThoughts([]);
     setLiveTools([]);
+    setActiveAgentId(null);
+    setActiveAgentProgress(null);
+    setPeerDelegation(null);
     setLastTokens(null);
     setLastDuration(null);
     setLiveStatus('');
@@ -288,12 +295,50 @@ function App() {
 
           if (event.type === 'status') {
             setLiveStatus(event.text);
+            const match = event.text.match(/Delegating to ([a-zA-Z0-9_]+)/i);
+            if (match) {
+              const target = match[1];
+              setActiveAgentId(target);
+              setPeerDelegation(prev => {
+                const prior = prev?.to || activeAgentId;
+                if (prior && prior !== 'Supervisor' && prior !== target) {
+                  return { from: prior, to: target };
+                }
+                return prev;
+              });
+              setActiveAgentProgress(30);
+            }
+          } else if (event.type === 'active_agent') {
+            if (event.agent && event.agent !== 'tools') {
+              setActiveAgentId(event.agent);
+            } else if (event.agent === null) {
+              setActiveAgentId(null);
+            }
+            if (event.progress !== undefined && event.progress !== null) {
+              setActiveAgentProgress(event.progress);
+            }
+          } else if (event.type === 'delegation') {
+            const fromAgent = (event.from && event.from !== 'Supervisor')
+              ? event.from
+              : (activeAgentId && activeAgentId !== 'Supervisor' && activeAgentId !== event.to ? activeAgentId : null);
+            if (fromAgent && fromAgent !== event.to) {
+              setPeerDelegation({ from: fromAgent, to: event.to });
+            }
+            setActiveAgentId(event.to);
+            setActiveAgentProgress(35);
           } else if (event.type === 'thought') {
+            const currentAgent = (event.agent && event.agent !== 'tools') ? event.agent : (activeAgentId || 'Supervisor');
+            if (currentAgent !== 'Supervisor' || !activeAgentId) {
+              setActiveAgentId(currentAgent);
+            }
+            setActiveAgentProgress(prev => {
+              const curr = prev || 25;
+              return curr < 88 ? Math.min(88, curr + 1) : curr;
+            });
             if (event.content) {
-              streamThoughts.push({ agent: event.agent || 'Agent', content: event.content });
+              streamThoughts.push({ agent: currentAgent, content: event.content });
               setLiveThoughts([...streamThoughts]);
             } else if (event.delta) {
-              const currentAgent = event.agent || 'Model';
               if (streamThoughts.length === 0 || streamThoughts[streamThoughts.length - 1].agent !== currentAgent) {
                 streamThoughts.push({ agent: currentAgent, content: event.delta });
               } else {
@@ -302,6 +347,11 @@ function App() {
               setLiveThoughts([...streamThoughts]);
             }
           } else if (event.type === 'tool') {
+            const toolAgent = (event.agent && event.agent !== 'tools') ? event.agent : activeAgentId;
+            if (toolAgent) {
+              setActiveAgentId(toolAgent);
+            }
+            setActiveAgentProgress(prev => Math.min(92, Math.max(prev || 50, 60) + 4));
             const existingIdx = streamTools.findIndex(t => t.name === event.name);
             if (existingIdx >= 0) {
               streamTools[existingIdx].status = event.status;
@@ -329,6 +379,7 @@ function App() {
             }]);
             return true; // Indicates we hit an interrupt
           } else if (event.type === 'done') {
+            setActiveAgentProgress(100);
             if (event.reply) replyContent = event.reply;
             if (event.thinking) finalThinking = event.thinking;
             if (event.duration) {
@@ -368,6 +419,8 @@ function App() {
   const handleResumeAction = async (approved) => {
     setPendingInterrupt(null);
     setIsTyping(true);
+    setActiveAgentId('Supervisor');
+    setActiveAgentProgress(25);
     setElapsedSeconds(0);
     setLiveStatus('Resuming execution...');
     setLiveThoughts([]);
@@ -413,10 +466,15 @@ function App() {
         timerRef.current = null;
       }
       setIsTyping(false);
-      setElapsedSeconds(0);
-      setLiveStatus('');
-      setLiveThoughts([]);
-      setLiveTools([]);
+      setActiveAgentProgress(100);
+      setTimeout(() => {
+        setActiveAgentId(null);
+        setPeerDelegation(null);
+        setLiveStatus('');
+        setLiveThoughts([]);
+        setLiveTools([]);
+        setElapsedSeconds(0);
+      }, 2500);
     }
   };
 
@@ -434,6 +492,9 @@ function App() {
       setInputText('');
     }
     setIsTyping(true);
+    setActiveAgentId('Supervisor');
+    setActiveAgentProgress(12);
+    setPeerDelegation(null);
     setElapsedSeconds(0);
     setLiveStatus('Analyzing request...');
     setLiveThoughts([]);
@@ -486,10 +547,15 @@ function App() {
           timerRef.current = null;
         }
         setIsTyping(false);
-        setElapsedSeconds(0);
-        setLiveStatus('');
-        setLiveThoughts([]);
-        setLiveTools([]);
+        setActiveAgentProgress(100);
+        setTimeout(() => {
+          setActiveAgentId(null);
+          setPeerDelegation(null);
+          setLiveStatus('');
+          setLiveThoughts([]);
+          setLiveTools([]);
+          setElapsedSeconds(0);
+        }, 2500);
       }
     }
   };
@@ -559,21 +625,51 @@ function App() {
         />
       )}
       
-      {/* Panel 1: Left Fleet Roster & Sessions */}
-      <Sidebar 
-        sessions={sessions} 
-        currentThread={currentThread} 
-        handleNewChat={handleNewChat} 
-        loadSession={loadSession} 
-        handleExit={handleExit} 
-        setShowSettings={setShowSettings}
-        setShowWorkplace={setShowWorkplace}
-        onSelectAgent={handleEditAgent}
-        agents={agents}
-        refreshSessions={fetchSessions}
-        currentWorkspace={currentWorkspace}
-        onWorkspaceChange={handleWorkspaceChange}
-      />
+      {/* Panel 1: Mobile Sidebar Slide-over Drawer (<lg) */}
+      {showMobileSidebar && (
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 lg:hidden animate-in fade-in duration-150"
+          onClick={() => setShowMobileSidebar(false)}
+        >
+          <div 
+            className="w-[300px] max-w-[85vw] h-full animate-in slide-in-from-left duration-200"
+            onClick={e => e.stopPropagation()}
+          >
+            <Sidebar 
+              sessions={sessions} 
+              currentThread={currentThread} 
+              handleNewChat={() => { handleNewChat(); setShowMobileSidebar(false); }} 
+              loadSession={(id) => { loadSession(id); setShowMobileSidebar(false); }} 
+              handleExit={handleExit} 
+              setShowSettings={setShowSettings}
+              setShowWorkplace={setShowWorkplace}
+              onSelectAgent={(agent) => { handleEditAgent(agent); setShowMobileSidebar(false); }}
+              agents={agents}
+              refreshSessions={fetchSessions}
+              currentWorkspace={currentWorkspace}
+              onWorkspaceChange={(ws) => { handleWorkspaceChange(ws); setShowMobileSidebar(false); }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Panel 1: Desktop Inline Sidebar (lg+) */}
+      <div className="hidden lg:flex h-full shrink-0">
+        <Sidebar 
+          sessions={sessions} 
+          currentThread={currentThread} 
+          handleNewChat={handleNewChat} 
+          loadSession={loadSession} 
+          handleExit={handleExit} 
+          setShowSettings={setShowSettings}
+          setShowWorkplace={setShowWorkplace}
+          onSelectAgent={handleEditAgent}
+          agents={agents}
+          refreshSessions={fetchSessions}
+          currentWorkspace={currentWorkspace}
+          onWorkspaceChange={handleWorkspaceChange}
+        />
+      </div>
 
       {/* Panel 1.5: Collapsible Workspace Tree Drawer */}
       <WorkspaceTreeDrawer
@@ -589,8 +685,18 @@ function App() {
       {/* Main Workspace: Top Bar + Viewport + Ambient Status Bar */}
       <div className="flex-1 flex flex-col h-full relative bg-[#0d0e12] overflow-hidden min-w-0">
         {/* Workspace Top Bar */}
-        <div className="h-[52px] px-5 flex items-center justify-between border-b border-white/[0.08] bg-[#14161d] shrink-0">
-          <div className="flex items-center gap-3">
+        <div className="h-[52px] px-3 sm:px-5 flex items-center justify-between border-b border-white/[0.08] bg-[#14161d] shrink-0 gap-2">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            {/* Mobile Sidebar Hamburger Toggle */}
+            <button
+              type="button"
+              onClick={() => setShowMobileSidebar(true)}
+              className="lg:hidden p-1.5 text-zinc-400 hover:text-zinc-200 hover:bg-white/5 rounded-lg mr-0.5 cursor-pointer shrink-0"
+              title="Open Sidebar"
+            >
+              <Menu size={16} />
+            </button>
+
             {/* Interactive Project Selector Dropdown */}
             <ProjectSelector 
               currentWorkspace={currentWorkspace} 
@@ -600,10 +706,10 @@ function App() {
               externalTriggerRef={bottomIndicatorRef}
             />
 
-            <span className="text-zinc-700">/</span>
+            <span className="text-zinc-700 hidden xl:inline">/</span>
 
             {/* Current Session Title */}
-            <span className="text-zinc-200 font-medium flex items-center gap-1.5 truncate max-w-[180px] sm:max-w-[240px] text-xs">
+            <span className="text-zinc-200 font-medium hidden xl:flex items-center gap-1.5 truncate max-w-[140px] 2xl:max-w-[200px] text-xs">
               <Cpu size={14} className="text-zinc-400 shrink-0" />
               <span className="truncate">{sessions.find(s => s.thread_id === currentThread)?.title || "Multi-Agent Workspace"}</span>
             </span>
@@ -611,7 +717,7 @@ function App() {
             {/* Collapsible Explorer Drawer Toggle Button */}
             <button
               onClick={() => setShowExplorer(prev => !prev)}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border transition-all cursor-pointer ${
+              className={`flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium rounded-lg border transition-all cursor-pointer shrink-0 ${
                 showExplorer 
                   ? 'bg-white/10 border-white/20 text-zinc-100 shadow-sm' 
                   : 'bg-white/[0.04] border-white/[0.08] text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.06]'
@@ -619,54 +725,58 @@ function App() {
               title="Toggle Workspace File Explorer"
             >
               <FolderTree size={14} className={showExplorer ? 'text-cyan-400' : 'text-zinc-400'} />
-              <span>Explorer</span>
+              <span className="hidden 2xl:inline">Explorer</span>
             </button>
 
             {/* Dedicated View Switcher: Stream vs Graph */}
-            <div className="flex items-center p-0.5 bg-[#0d0e12] border border-white/[0.08] rounded-lg ml-1">
+            <div className="flex items-center p-0.5 bg-[#0d0e12] border border-white/[0.08] rounded-lg shrink-0">
               <button
                 onClick={() => setMainView('stream')}
-                className={`flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                className={`flex items-center gap-1.5 px-2 sm:px-2.5 py-1 text-xs font-medium rounded-md transition-all cursor-pointer ${
                   mainView === 'stream' 
                     ? 'bg-[#1a1c26] text-zinc-100 shadow-sm border border-white/[0.08]' 
                     : 'text-zinc-400 hover:text-zinc-200'
                 }`}
               >
-                Task Stream
+                <span className="hidden sm:inline">Task </span>Stream
               </button>
               <button
                 onClick={() => setMainView('graph')}
-                className={`flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                className={`flex items-center gap-1.5 px-2 sm:px-2.5 py-1 text-xs font-medium rounded-md transition-all cursor-pointer ${
                   mainView === 'graph' 
                     ? 'bg-[#1a1c26] text-zinc-100 shadow-sm border border-white/[0.08]' 
                     : 'text-zinc-400 hover:text-zinc-200'
                 }`}
               >
-                Fleet Graph
+                <span className="hidden sm:inline">Fleet </span>Graph
               </button>
             </div>
 
+            {/* Edit Roster Button */}
             <button
               onClick={() => setShowWorkplace(true)}
-              className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg text-zinc-300 bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] hover:text-zinc-100 cursor-pointer transition-all ml-1"
-              title="Manage dynamic multi-agent roles and tool whitelisting in modal"
+              className="flex items-center gap-1.5 text-xs font-medium px-2 py-1.5 rounded-lg text-zinc-300 bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] hover:text-zinc-100 cursor-pointer transition-all shrink-0"
+              title="Manage dynamic multi-agent roles and tool whitelisting"
             >
-              <Users size={13} /> Edit Roster
+              <Users size={13} />
+              <span className="hidden 2xl:inline">Edit Roster</span>
             </button>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {/* 9Router Status Pill - hidden on <2xl to preserve breathing room (already shown in bottom bar) */}
             <div 
-              className="flex items-center gap-2 text-xs font-medium text-zinc-400 bg-white/[0.04] px-3 py-1.5 border border-white/[0.08] rounded-lg"
+              className="hidden 2xl:flex items-center gap-1.5 text-xs font-medium text-zinc-400 bg-white/[0.04] px-2 py-1.5 border border-white/[0.08] rounded-lg shrink-0 cursor-default"
               title={availableModels.length > 0 ? `${availableModels.length} models loaded via 9Router proxy` : "9Router offline or unreachable"}
             >
-              <span className={`w-1.5 h-1.5 rounded-full ${availableModels.length > 0 ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`}></span>
-              <span>9Router: {availableModels.length > 0 ? `${availableModels.length} Models` : 'Offline'}</span>
+              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${availableModels.length > 0 ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`}></span>
+              <span className="font-mono text-[11px]">{availableModels.length > 0 ? `${availableModels.length} Models` : 'Offline'}</span>
             </div>
             
+            {/* Telemetry Drawer Toggle */}
             <button
               onClick={() => setShowTelemetry(prev => !prev)}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all cursor-pointer ${
+              className={`flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-all cursor-pointer shrink-0 ${
                 showTelemetry 
                   ? 'bg-white/10 border-white/20 text-zinc-100 shadow-sm' 
                   : 'bg-white/[0.04] border-white/[0.08] text-zinc-400 hover:text-zinc-200'
@@ -674,26 +784,25 @@ function App() {
               title="Toggle Live Telemetry (Ctrl+B)"
             >
               <Activity size={14} className={showTelemetry ? 'text-zinc-200' : 'text-zinc-400'} />
-              <span>{showTelemetry ? 'Hide Telemetry' : 'Telemetry'}</span>
-              <kbd className="hidden sm:inline-block text-[10px] font-mono opacity-50 ml-0.5 px-1 py-0.2 rounded bg-black/30 border border-white/10">^B</kbd>
+              <span className="hidden 2xl:inline">{showTelemetry ? 'Hide Telemetry' : 'Telemetry'}</span>
             </button>
           </div>
         </div>
 
         {/* Workspace Body: Center Stream / Graph & Collapsible Telemetry Panel */}
-        <div className="flex-1 flex overflow-hidden min-h-0">
+        <div className="flex-1 flex overflow-hidden min-h-0 relative">
           {/* Panel 2: Center Task Stream & Interventions OR Live Fleet Graph */}
           <div className="flex-1 flex flex-col h-full relative bg-[#0d0e12] overflow-hidden min-w-0">
             {mainView === 'graph' ? (
-              <div className="flex-1 flex flex-col p-6 overflow-hidden bg-[#0d0e12]">
-                <div className="flex items-center justify-between mb-3.5">
+              <div className="flex-1 flex flex-col p-3 sm:p-5 md:p-6 overflow-hidden bg-[#0d0e12]">
+                <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
                   <div className="flex items-center gap-2.5">
-                    <span className="text-sm font-semibold text-zinc-100 tracking-tight">Interactive Fleet Topology</span>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-white/5 text-zinc-300 border border-white/[0.08]">
-                      {agents.filter(a => a.enabled).length} / {agents.length} Active Specialists
+                    <span className="text-sm font-semibold text-zinc-100 tracking-tight whitespace-nowrap">Interactive Fleet Topology</span>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-white/5 text-zinc-300 border border-white/[0.08] whitespace-nowrap">
+                      {agents.length > 0 ? `${agents.filter(a => a.enabled).length} / ${agents.length}` : '4 / 4'} Active Specialists
                     </span>
                   </div>
-                  <span className="text-xs text-zinc-400">Supervisor dynamically coordinates worker nodes</span>
+                  <span className="text-xs text-zinc-400 hidden sm:inline">Supervisor dynamically coordinates worker nodes</span>
                 </div>
                 <div className="flex-1 overflow-hidden relative">
                   <AgentWorkplaceGraph 
@@ -701,6 +810,15 @@ function App() {
                     handleToggleEnabled={handleToggleEnabled}
                     handleEditAgent={handleEditAgent}
                     onSelectAgent={handleEditAgent}
+                    isExecuting={isTyping}
+                    activeAgentId={activeAgentId}
+                    activeAgentProgress={activeAgentProgress}
+                    peerDelegation={peerDelegation}
+                    liveStatus={liveStatus}
+                    liveTools={liveTools}
+                    liveThoughts={liveThoughts}
+                    pendingInterrupt={pendingInterrupt}
+                    onRespondInterrupt={handleResumeAction}
                   />
                 </div>
               </div>

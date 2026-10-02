@@ -217,8 +217,8 @@ export default function ProjectSelector({
       >
         <FolderGit2 size={14} className="text-cyan-400 shrink-0 group-hover:scale-105 transition-transform" />
         
-        {/* Project Name (bold text, truncate at 180px) */}
-        <span className="font-semibold text-zinc-100 truncate max-w-[180px] shrink-0">
+        {/* Project Name (bold text, truncate at 110px/150px) */}
+        <span className="font-semibold text-zinc-100 truncate max-w-[110px] sm:max-w-[150px] shrink-0">
           {currentWorkspace?.name || 'Open Project'}
         </span>
 
@@ -233,7 +233,7 @@ export default function ProjectSelector({
             title={`Git Branch: ${currentWorkspace.git_branch} (${isClean ? 'clean' : 'modified'})`}
           >
             <GitBranch size={10} className="shrink-0" />
-            <span className="truncate max-w-[70px]">{currentWorkspace.git_branch}</span>
+            <span className="truncate max-w-[55px]">{currentWorkspace.git_branch}</span>
           </span>
         )}
 
@@ -244,7 +244,7 @@ export default function ProjectSelector({
             title={`Project Rules:\n${(currentWorkspace.rules_summary || []).join('\n')}`}
           >
             <Sparkles size={10} className="text-amber-400 shrink-0" />
-            <span>{currentWorkspace.rules_count} {currentWorkspace.rules_count === 1 ? 'Rule' : 'Rules'}</span>
+            <span>{currentWorkspace.rules_count}<span className="hidden sm:inline"> {currentWorkspace.rules_count === 1 ? 'Rule' : 'Rules'}</span></span>
           </span>
         )}
 

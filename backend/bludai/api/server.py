@@ -550,10 +550,12 @@ async def chat_stream(req: ChatRequest):
             inputs["checklist"] = checklist
             inputs["next"] = "Supervisor"
                 
-            yield f"data: {json.dumps({'type': 'status', 'text': 'Supervisor analyzing request...'})}\n\n"
+            yield f"data: {json.dumps({'type': 'status', 'text': 'Supervisor analyzing request...', 'agent': 'Supervisor'})}\n\n"
+            yield f"data: {json.dumps({'type': 'active_agent', 'agent': 'Supervisor', 'progress': 15})}\n\n"
                 
             collected_thoughts = []
             final_reply = ""
+            last_worker_agent = None
                 
             from starlette.concurrency import iterate_in_threadpool
                 
@@ -567,7 +569,10 @@ async def chat_stream(req: ChatRequest):
                         
                     if node_name == "Supervisor":
                         pass # Supervisor returns JSON, streaming it token-by-token is tricky, better to just emit at the end.
+                    elif node_name == "tools":
+                        pass # Central tools node does not stream worker thoughts
                     else:
+                        last_worker_agent = node_name
                         # Stream tokens for worker agents as 'thought'
                         content_chunk = msg_chunk.content if isinstance(msg_chunk.content, str) else ""
                         reasoning_chunk = (
@@ -590,6 +595,8 @@ async def chat_stream(req: ChatRequest):
                         return
 
                     node_name = list(step.keys())[0]
+                    if node_name not in ("Supervisor", "tools"):
+                        last_worker_agent = node_name
                     node_out = step[node_name]
                         
                     next_target = node_out.get("next")
@@ -612,7 +619,9 @@ async def chat_stream(req: ChatRequest):
                             elif getattr(m, "tool_calls", None):
                                 for tc in m.tool_calls:
                                     t_name = tc.get("name", "tool")
-                                    yield f"data: {json.dumps({'type': 'tool', 'name': t_name, 'status': 'running...'})}\n\n"
+                                    worker_id = last_worker_agent or node_name
+                                    yield f"data: {json.dumps({'type': 'tool', 'name': t_name, 'status': 'running...', 'agent': worker_id})}\n\n"
+                                    yield f"data: {json.dumps({'type': 'active_agent', 'agent': worker_id})}\n\n"
                             elif next_target == "FINISH" and content_str:
                                 final_reply = content_str
                                 yield f"data: {json.dumps({'type': 'content', 'delta': content_str})}\n\n"
@@ -620,11 +629,16 @@ async def chat_stream(req: ChatRequest):
                         elif isinstance(m, ToolMessage):
                             tool_name = getattr(m, "name", "tool")
                             tool_output = str(m.content)[:250] + ("..." if len(str(m.content)) > 250 else "")
-                            yield f"data: {json.dumps({'type': 'tool', 'name': tool_name, 'status': 'done', 'content': tool_output})}\n\n"
+                            worker_id = last_worker_agent or "Executor"
+                            yield f"data: {json.dumps({'type': 'tool', 'name': tool_name, 'status': 'done', 'content': tool_output, 'agent': worker_id})}\n\n"
                             collected_thoughts.append(f"🔧 **Tool executed ({tool_name})**:\n```\n{tool_output}\n```")
                         
                     if next_target and next_target != "FINISH":
-                        yield f"data: {json.dumps({'type': 'status', 'text': f'⚡ Delegating to {next_target}...'})}\n\n"
+                        yield f"data: {json.dumps({'type': 'status', 'text': f'⚡ Delegating to {next_target}...', 'agent': node_name})}\n\n"
+                        from_agent = last_worker_agent if (last_worker_agent and last_worker_agent != next_target) else node_name
+                        yield f"data: {json.dumps({'type': 'delegation', 'from': from_agent, 'to': next_target})}\n\n"
+                        yield f"data: {json.dumps({'type': 'active_agent', 'agent': next_target, 'progress': 30})}\n\n"
+                        last_worker_agent = next_target
                 
             duration = round(time.time() - start_time, 2)
             thinking_trace = "\n\n---\n\n".join(collected_thoughts) if collected_thoughts else (
@@ -634,11 +648,15 @@ async def chat_stream(req: ChatRequest):
             )
                 
             # Compute tokens
-            checkpointer_after = get_checkpointer()
-            state_after = checkpointer_after.get(config)
-            final_messages = state_after["channel_values"].get("messages", []) if state_after else []
+            try:
+                checkpointer_after = get_checkpointer()
+                state_after = checkpointer_after.get(config)
+                final_messages = state_after["channel_values"].get("messages", []) if state_after else []
+            except Exception:
+                final_messages = []
             tokens = extract_or_estimate_tokens(final_messages, initial_msg_count, prompt_text=req.message, reply_text=final_reply)
                 
+            yield f"data: {json.dumps({'type': 'active_agent', 'agent': None, 'progress': 100})}\n\n"
             yield f"data: {json.dumps({'type': 'done', 'reply': final_reply or 'Task completed.', 'thinking': thinking_trace, 'duration': duration, 'tokens': tokens})}\n\n"
                 
         except Exception as e:
@@ -682,11 +700,15 @@ async def chat_resume(req: ResumeRequest):
 
             from starlette.concurrency import iterate_in_threadpool
 
+            last_worker_agent = None
             async for mode, payload in iterate_in_threadpool(compiled_app.stream(Command(resume=resume_payload), config=config, stream_mode=["messages", "updates"])):
                 if mode == "messages":
                     msg_chunk, metadata = payload
                     node_name = metadata.get("langgraph_node", "Model")
-                    if node_name != "Supervisor":
+                    if node_name == "Supervisor" or node_name == "tools":
+                        pass
+                    else:
+                        last_worker_agent = node_name
                         content_chunk = msg_chunk.content if isinstance(msg_chunk.content, str) else ""
                         reasoning_chunk = (
                             getattr(msg_chunk, "additional_kwargs", {}).get("reasoning_content") or
@@ -706,6 +728,8 @@ async def chat_resume(req: ResumeRequest):
                         return
 
                     node_name = list(step.keys())[0]
+                    if node_name not in ("Supervisor", "tools"):
+                        last_worker_agent = node_name
                     node_out = step[node_name]
 
                     next_target = node_out.get("next")
@@ -728,7 +752,9 @@ async def chat_resume(req: ResumeRequest):
                             elif getattr(m, "tool_calls", None):
                                 for tc in m.tool_calls:
                                     t_name = tc.get("name", "tool")
-                                    yield f"data: {json.dumps({'type': 'tool', 'name': t_name, 'status': 'running...'})}\n\n"
+                                    worker_id = last_worker_agent or node_name
+                                    yield f"data: {json.dumps({'type': 'tool', 'name': t_name, 'status': 'running...', 'agent': worker_id})}\n\n"
+                                    yield f"data: {json.dumps({'type': 'active_agent', 'agent': worker_id})}\n\n"
                             elif next_target == "FINISH" and content_str:
                                 final_reply = content_str
                                 yield f"data: {json.dumps({'type': 'content', 'delta': content_str})}\n\n"
@@ -736,20 +762,29 @@ async def chat_resume(req: ResumeRequest):
                         elif isinstance(m, ToolMessage):
                             tool_name = getattr(m, "name", "tool")
                             tool_output = str(m.content)[:250] + ("..." if len(str(m.content)) > 250 else "")
-                            yield f"data: {json.dumps({'type': 'tool', 'name': tool_name, 'status': 'done', 'content': tool_output})}\n\n"
+                            worker_id = last_worker_agent or "Executor"
+                            yield f"data: {json.dumps({'type': 'tool', 'name': tool_name, 'status': 'done', 'content': tool_output, 'agent': worker_id})}\n\n"
                             collected_thoughts.append(f"🔧 **Tool executed ({tool_name})**:\n```\n{tool_output}\n```")
 
                     if next_target and next_target != "FINISH":
-                        yield f"data: {json.dumps({'type': 'status', 'text': f'⚡ Delegating to {next_target}...'})}\n\n"
+                        yield f"data: {json.dumps({'type': 'status', 'text': f'⚡ Delegating to {next_target}...', 'agent': node_name})}\n\n"
+                        from_agent = last_worker_agent if (last_worker_agent and last_worker_agent != next_target) else node_name
+                        yield f"data: {json.dumps({'type': 'delegation', 'from': from_agent, 'to': next_target})}\n\n"
+                        yield f"data: {json.dumps({'type': 'active_agent', 'agent': next_target, 'progress': 30})}\n\n"
+                        last_worker_agent = next_target
 
             duration = round(time.time() - start_time, 2)
             thinking_trace = "\n\n---\n\n".join(collected_thoughts) if collected_thoughts else None
 
-            checkpointer_after = get_checkpointer()
-            state_after = checkpointer_after.get(config)
-            final_messages = state_after["channel_values"].get("messages", []) if state_after else []
+            try:
+                checkpointer_after = get_checkpointer()
+                state_after = checkpointer_after.get(config)
+                final_messages = state_after["channel_values"].get("messages", []) if state_after else []
+            except Exception:
+                final_messages = []
             tokens = extract_or_estimate_tokens(final_messages, initial_msg_count, prompt_text="Resumed execution", reply_text=final_reply)
 
+            yield f"data: {json.dumps({'type': 'active_agent', 'agent': None, 'progress': 100})}\n\n"
             yield f"data: {json.dumps({'type': 'done', 'reply': final_reply or 'Task completed.', 'thinking': thinking_trace, 'duration': duration, 'tokens': tokens})}\n\n"
 
         except Exception as e:

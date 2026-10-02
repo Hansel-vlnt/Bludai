@@ -1,7 +1,7 @@
 {
-    "Supervisor": "openrouter/inclusionai/ling-3.0-flash-fin:free",
-    "Developer": "openrouter/inclusionai/ling-3.0-flash-fin:free",
-    "CodeReviewer": "openrouter/inclusionai/ling-3.0-flash-sante:free",
-    "Researcher": "openrouter/inclusionai/ling-3.0-flash-sante:free",
-    "Executor": "openrouter/inclusionai/ling-3.0-flash-fin:free"
+    "Supervisor": "ag/gemini-3.8-flash",
+    "Developer": "ag/gemini-3.8-flash",
+    "CodeReviewer": "ag/gemini-3.8-flash",
+    "Researcher": "ag/gemini-3.8-flash",
+    "Executor": "ag/gemini-3.8-flash"
 }
