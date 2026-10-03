@@ -349,10 +349,11 @@ You MUST respond with a JSON object conforming to this schema:
         else:
             # Missing key deliverables requested in user prompt
             def find_agent(*keywords):
-                for a in enabled_agents:
-                    a_name = a.get("name", "")
-                    if a_name and any(k.lower() in a_name.lower() for k in keywords):
-                        return a_name
+                for k in keywords:
+                    for a in enabled_agents:
+                        a_name = a.get("name", "")
+                        if a_name and k.lower() in a_name.lower():
+                            return a_name
                 return None
 
             if html_requested and not html_exists:

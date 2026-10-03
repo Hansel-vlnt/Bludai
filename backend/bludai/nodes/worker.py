@@ -116,6 +116,17 @@ def make_worker_node(agent_id: str) -> Callable[[AgentState], dict]:
             # If the supervisor just spoke (AIMessage without tool calls), we treat it as a Human instruction
             if isinstance(m, AIMessage) and not getattr(m, "tool_calls", None) and m.additional_kwargs.get("agent") == "Supervisor":
                 new_state_msgs.append(HumanMessage(content=f"[Supervisor]: {m.content}"))
+            elif isinstance(m, AIMessage) and getattr(m, "tool_calls", None):
+                # Sanitize huge code content in past tool_calls arguments for lean token context
+                sanitized_calls = []
+                for tc in m.tool_calls:
+                    tc_dict = dict(tc)
+                    args_dict = dict(tc_dict.get("args", {}))
+                    if "content" in args_dict and isinstance(args_dict["content"], str) and len(args_dict["content"]) > 1000:
+                        args_dict["content"] = args_dict["content"][:200] + f"\n... [{len(args_dict['content'])} characters written to disk] ...\n"
+                    tc_dict["args"] = args_dict
+                    sanitized_calls.append(tc_dict)
+                new_state_msgs.append(AIMessage(content=m.content, tool_calls=sanitized_calls, additional_kwargs=m.additional_kwargs))
             else:
                 new_state_msgs.append(m)
                 
